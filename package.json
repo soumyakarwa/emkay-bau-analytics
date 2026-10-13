@@ -1,0 +1,30 @@
+{
+  "name": "sm-bau-microsite",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "template": "tsx scripts/make-template.ts"
+  },
+  "dependencies": {
+    "@vercel/blob": "2.8.1",
+    "exceljs": "4.4.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-vercel": "6.3.4",
+    "@sveltejs/kit": "2.70.3",
+    "@sveltejs/vite-plugin-svelte": "6.2.4",
+    "svelte": "5.56.10",
+    "svelte-check": "4.7.6",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "3.2.7"
+  }
+}
