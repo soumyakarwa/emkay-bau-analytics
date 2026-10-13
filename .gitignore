@@ -1,8 +1,7 @@
-node_modules
-.svelte-kit
-.vercel
-build
-.env
-.env.*
-!.env.example
-.data
+# Calendar workbooks contain staff names and internal links
+*.xlsx
+
+__pycache__/
+.venv/
+node_modules/
+.DS_Store
