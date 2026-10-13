@@ -5,7 +5,7 @@ The website does not depend on anything in this folder.
 
 | Folder | What it does |
 | --- | --- |
-| [`template/`](template/) | Builds the content-calendar workbook each brand fills in |
+| [`template/`](template/) | Builds the content-calendar workbook each brand fills in. `make_sample.py` builds a made-up one for the website's tests |
 
 ## Set up (once)
 
