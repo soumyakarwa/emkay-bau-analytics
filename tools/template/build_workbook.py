@@ -2,8 +2,9 @@
 # Every brand uses exactly this structure; only the data differs. This file is the single
 # definition of the workbook: the website's import must read exactly what it writes.
 #
+# Run from the tools folder with its virtual environment active (see tools/README.md):
 #   python template/build_workbook.py --brand "Emkay Global" --fy 2027 --bau-start 2026-11
-#   python template/build_workbook.py --from "Emkay IM - Content calendar FY27.xlsx" --fy 2027
+#   python template/build_workbook.py --from "Emkay IM - Content calendar FY27.xlsx" --fy 2028
 #
 # --from carries the brand, purpose, BAU start, comms tasks, framework and lists over from
 # last year's workbook, so next year's file starts with the options already in place.
