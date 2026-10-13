@@ -6,8 +6,18 @@ import reads exactly what this script writes, so change the structure here and n
 
 ## Generate a workbook
 
+Use a virtual environment so the script's library stays separate from your system Python.
+Set it up once, from the repository root:
+
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r template/requirements.txt
+```
+
+Then, in any new terminal, run `source .venv/bin/activate` before using the script:
+
+```bash
 
 # A blank workbook for a brand
 python template/build_workbook.py --brand "Emkay Global" --fy 2027 --bau-start 2026-11
