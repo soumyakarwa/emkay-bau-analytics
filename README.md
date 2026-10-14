@@ -11,7 +11,7 @@ This is version 2, built one step at a time. The first version is on the `main` 
 
 1. **Excel structure** (done): a standard workbook per brand per financial year. See [`tools/template/`](tools/template/).
 2. **Reader and checker** (done): reads one brand's workbook and lists its problems. See [`web/`](web/).
-3. Combine the three brands into one dataset.
+3. **All of Emkay** (done): every upload kept, and the latest of each brand combined into one dataset. See [`web/`](web/).
 4. Calendar view with a brand filter.
 5. Upload per brand.
 6. Storage, built for Vercel Blob.

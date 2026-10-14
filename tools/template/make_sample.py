@@ -2,7 +2,7 @@
 # website's tests. The tests read the workbook with the website's reader and compare the result
 # with the JSON, so the template and the reader cannot drift apart unnoticed.
 #
-#   python template/make_sample.py <workbook.xlsx> <expected.json>
+#   python template/make_sample.py <workbook.xlsx> <expected.json> [brand]
 
 import datetime, json, sys
 from collections import Counter
@@ -58,14 +58,14 @@ TODAY = '2026-10-13'
 BAU_START = '2026-08'
 
 
-def expected():
+def expected(brand):
     counts = Counter()
     for r in ROWS:
         if 'peg' not in r or r.get('status') == 'Dropped' or f"{r['date']:%Y-%m}" < BAU_START:
             continue
         counts[(f"{r['date']:%Y-%m}", PEG_TASK[r['peg']])] += 1
     return {
-        'brand': 'Sample brand',
+        'brand': brand,
         'fy': 2027,
         'bauStart': BAU_START,
         'today': TODAY,
@@ -79,6 +79,7 @@ def expected():
 
 if __name__ == '__main__':
     xlsx, out = sys.argv[1], sys.argv[2]
-    build(xlsx, brand='Sample brand', fy_start=2026, bau_start=D(2026, 8, 1), purpose='Made-up data for tests.',
+    brand = sys.argv[3] if len(sys.argv) > 3 else 'Sample brand'
+    build(xlsx, brand=brand, fy_start=2026, bau_start=D(2026, 8, 1), purpose='Made-up data for tests.',
           tasks=TASKS, pegs=PEGS, team=TEAM, series=SERIES, rows=ROWS)
-    Path(out).write_text(json.dumps(expected(), indent=2))
+    Path(out).write_text(json.dumps(expected(brand), indent=2))

@@ -35,11 +35,11 @@ export interface Expected {
   pegs: Record<string, string>;
 }
 
-export function buildSample(): { bytes: Uint8Array; expected: Expected } {
+export function buildSample(brand?: string): { bytes: Uint8Array; expected: Expected } {
   const dir = mkdtempSync(join(tmpdir(), 'bau-sample-'));
   const xlsx = join(dir, 'sample.xlsx');
   const json = join(dir, 'expected.json');
-  execFileSync(python(), [join(TOOLS, 'template/make_sample.py'), xlsx, json], { stdio: 'pipe' });
+  execFileSync(python(), [join(TOOLS, 'template/make_sample.py'), xlsx, json, ...(brand ? [brand] : [])], { stdio: 'pipe' });
   if (!existsSync(xlsx)) throw new Error('make_sample.py did not write the workbook');
   return { bytes: new Uint8Array(readFileSync(xlsx)), expected: JSON.parse(readFileSync(json, 'utf8')) };
 }

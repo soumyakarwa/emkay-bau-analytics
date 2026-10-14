@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
-    "check-workbook": "tsx scripts/check-workbook.ts"
+    "check-workbook": "tsx scripts/check-workbook.ts",
+    "publish-workbook": "tsx scripts/publish-workbook.ts",
+    "show-emkay": "tsx scripts/show-emkay.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-vercel": "6.3.4",
