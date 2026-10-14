@@ -172,7 +172,7 @@ def build(path, brand, fy_start, bau_start=None, purpose='', tasks=(), pegs=(), 
         ('3', 'Pick Series (if any), Format, Owner and Status from their dropdowns. Typing something that is not in the list is refused.'),
         ('4', 'In each platform column type Planned, then replace it with the post URL once the post is live. WhatsApp also accepts Sent.'),
         ('5', 'A row counts as a post once it has a Title or a Peg. A row with only Moment marketing is a reminder, not a post.'),
-        ('', 'Copy link, Long-form and Reference only accept links (starting with http).'),
+        ('', 'Copy link and Reference only accept links (starting with http). Long-form takes Planned, then the blog link once the article is live.'),
         ('6', 'Never rename, add or delete month sheets, and keep summaries off the month sheets: the Summary sheet does that automatically.'),
         ('Changing the options', None),
         ('Framework', 'Add a peg as a new row. To stop using a peg, set Active to No instead of deleting it: it leaves the dropdown, but older posts still count towards it.'),
@@ -279,12 +279,18 @@ def build(path, brand, fy_start, bau_start=None, purpose='', tasks=(), pegs=(), 
                              ('Status', 'StatusList', 'status from the Lists sheet')]:
             col = letter(h)
             list_dv(ws, f'{col}2:{col}{MAX_ROW}', src, f'Not a valid {h.lower()}', f'Pick a {what}. To add a new option, add it there first.')
-        for h in ('Copy link', 'Long-form', 'Reference'):
+        for h in ('Copy link', 'Reference'):
             col = letter(h)
             dv = DataValidation(type='custom', formula1=f'LEFT({col}2,4)="http"', allow_blank=True, showErrorMessage=True,
                                 errorTitle='Links only', error='Paste the full link (starting with http).')
             dv.add(f'{col}2:{col}{MAX_ROW}')
             ws.add_data_validation(dv)
+        col = letter('Long-form')
+        dv = DataValidation(type='custom', formula1=f'OR({col}2="Planned",LEFT({col}2,4)="http")', allow_blank=True,
+                            showErrorMessage=True, errorTitle='Planned or a link',
+                            error='Type Planned, or paste the blog link once the article is live (starting with http).')
+        dv.add(f'{col}2:{col}{MAX_ROW}')
+        ws.add_data_validation(dv)
         for p in PLATFORMS:
             col = letter(p)
             extra = f',{col}2="Sent"' if p == 'WhatsApp' else ''

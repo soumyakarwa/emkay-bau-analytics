@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { brandByName } from '../src/lib/brands';
 import { buildDataset, emkayTotals, filterPosts, loadDataset } from '../src/lib/dataset/dataset';
 import { memoryStore } from '../src/lib/dataset/store';
-import { getUpload, latestUploads, listUploads, publish, publishFile } from '../src/lib/dataset/uploads';
+import { READER_VERSION, getUpload, latestUploads, listUploads, publish, publishFile } from '../src/lib/dataset/uploads';
 import { folderStore } from '../src/lib/server/folder-store';
 import { readCalendar } from '../src/lib/workbook/read-calendar';
 import type { Sheet } from '../src/lib/workbook/xlsx';
@@ -102,6 +102,35 @@ describe('history', () => {
   });
 });
 
+describe('uploads read by an older reader', () => {
+  /** Turns a stored upload back into what reader version 1 wrote: no version, longFormLink instead of longForm. */
+  async function makeV1(store: ReturnType<typeof memoryStore>, keepFile: boolean) {
+    const r = await publishFile(store, im.bytes, { ...at('2026-10-13T09:00:00Z'), today: TODAY });
+    const key = (await store.list('uploads/')).find((k) => k.endsWith('.json'))!;
+    const u = JSON.parse((await store.get(key))!);
+    delete u.readerVersion;
+    u.workbook.posts = u.workbook.posts.map(({ longForm, ...p }: { longForm: { url: string | null } | null }) => ({ ...p, longFormLink: longForm?.url ?? null }));
+    const target = keepFile ? store : memoryStore();
+    await target.put(key, JSON.stringify(u));
+    return { id: r.upload!.id, store: target };
+  }
+
+  it('are read again from their original file', async () => {
+    const { id, store } = await makeV1(memoryStore(), true);
+    const u = (await getUpload(store, id))!;
+    expect(u.readerVersion).toBe(READER_VERSION);
+    expect(u.workbook.posts.find((p) => p.title === 'Planned post')!.longForm).toEqual({ state: 'planned', url: null });
+  });
+
+  it('without a stored file, keep their old long-form links', async () => {
+    const { id, store } = await makeV1(memoryStore(), false);
+    const posts = (await getUpload(store, id))!.workbook.posts;
+    expect(posts.find((p) => p.title === 'Data post')!.longForm).toEqual({ state: 'published', url: 'https://example.sharepoint.com/article7' });
+    expect(posts.find((p) => p.title === 'Planned post')!.longForm).toBeNull();
+    expect(posts.every((p) => !('longFormLink' in p))).toBe(true);
+  });
+});
+
 describe('All of Emkay', () => {
   it('combines the latest upload of each brand, each with its own framework', async () => {
     const store = memoryStore();
@@ -136,7 +165,7 @@ describe('folder store', () => {
   it('keeps uploads as files and finds them again', async () => {
     const store = folderStore(mkdtempSync(join(tmpdir(), 'bau-store-')));
     const r = await publishFile(store, wealth.bytes, { ...at('2026-10-13T09:00:00Z'), today: TODAY });
-    expect(await store.list('uploads/wealth/fy27/')).toEqual([`uploads/wealth/fy27/${r.upload!.id}.json`]);
+    expect((await store.list('uploads/wealth/fy27/')).sort()).toEqual([`uploads/wealth/fy27/${r.upload!.id}.json`, `uploads/wealth/fy27/${r.upload!.id}.xlsx.b64`]);
     expect((await latestUploads(store))[0].id).toBe(r.upload!.id);
   });
 });

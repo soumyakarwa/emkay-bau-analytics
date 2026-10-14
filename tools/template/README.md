@@ -36,7 +36,8 @@ python template/build_workbook.py --from "Emkay IM - Content calendar FY27.xlsx"
   post, so restructure at the start of a financial year and retire pegs mid-year instead.
 - Comms tasks with "Counts as BAU = No" (Compliance) are counted but kept out of the BAU share.
 - Months before the brand's BAU start are left out of the Summary.
-- Copy link, Long-form, Reference and the platform columns only take links (platforms also take
-  "Planned"; WhatsApp also takes "Sent").
+- Copy link and Reference only take links. The platform columns take "Planned" or the post link
+  (WhatsApp also takes "Sent"). Long-form takes "Planned" or the blog article's link: long-form
+  is the article behind a post, not a platform.
 
 Real calendar workbooks contain staff names and internal links. Keep them out of this repository.

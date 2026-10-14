@@ -37,6 +37,8 @@ export interface Filters {
   platform?: Platform;
   /** Only posts with problems to fix in the workbook. */
   toFix?: boolean;
+  /** Only posts with a long-form article (planned or live). */
+  longForm?: boolean;
   /** Include Dropped posts. */
   showDropped?: boolean;
 }
@@ -118,14 +120,16 @@ export interface CalendarView {
   /** Posts this month (brand view, not Dropped) at each stage and on each platform, before those filters. */
   stageCounts: Record<Exclude<Stage, 'dropped'>, number>;
   platformCounts: Record<Platform, number>;
-  /** Posts with problems to fix, given the stage and platform filters. */
+  /** Posts with problems to fix, given the other filters. */
   toFixCount: number;
+  /** Posts with a long-form article, given the other filters. */
+  longFormCount: number;
 }
 
 const isDropped = (p: DatasetPost) => !!p.status && normalise(p.status) === normalise(DROPPED);
 
 export function calendarView(ds: Dataset, view: View, month: string, filters: Filters = {}): CalendarView {
-  const { stage, platform, toFix = false, showDropped = false } = filters;
+  const { stage, platform, toFix = false, longForm = false, showDropped = false } = filters;
   const inView = (p: { brand: BrandId; date: string }) => (view === 'all' || p.brand === view) && p.date.startsWith(month);
   const all = ds.posts.filter(inView);
   const yearOf = (p: DatasetPost) => ds.brandYears.find((y) => y.brand === p.brand && y.fy === p.fy);
@@ -157,16 +161,19 @@ export function calendarView(ds: Dataset, view: View, month: string, filters: Fi
   const stageOk = (p: DatasetPost) => !stage || stageOf(p.status) === stage;
   const platformOk = (p: DatasetPost) => !platform || onPlatform(p, platform);
   const fixOk = (p: DatasetPost) => !toFix || hasProblems(p);
+  const hasLongForm = (p: DatasetPost) => !!p.longForm;
+  const longFormOk = (p: DatasetPost) => !longForm || hasLongForm(p);
   const stageCounts = Object.fromEntries(
-    STAGES.map((s) => [s.id, live.filter((p) => stageOf(p.status) === s.id && platformOk(p) && fixOk(p)).length])
+    STAGES.map((s) => [s.id, live.filter((p) => stageOf(p.status) === s.id && platformOk(p) && fixOk(p) && longFormOk(p)).length])
   ) as CalendarView['stageCounts'];
   const platformCounts = Object.fromEntries(
-    PLATFORMS.map((pl) => [pl, live.filter((p) => onPlatform(p, pl) && stageOk(p) && fixOk(p)).length])
+    PLATFORMS.map((pl) => [pl, live.filter((p) => onPlatform(p, pl) && stageOk(p) && fixOk(p) && longFormOk(p)).length])
   ) as CalendarView['platformCounts'];
-  const toFixCount = live.filter((p) => hasProblems(p) && stageOk(p) && platformOk(p)).length;
+  const toFixCount = live.filter((p) => hasProblems(p) && stageOk(p) && platformOk(p) && longFormOk(p)).length;
+  const longFormCount = live.filter((p) => hasLongForm(p) && stageOk(p) && platformOk(p) && fixOk(p)).length;
   const posts = all
     .filter((p) => (showDropped && !stage) || !isDropped(p))
-    .filter((p) => stageOk(p) && platformOk(p) && fixOk(p))
+    .filter((p) => stageOk(p) && platformOk(p) && fixOk(p) && longFormOk(p))
     .map((p) => ({
       ...p,
       colour: colourOf(p),
@@ -180,9 +187,10 @@ export function calendarView(ds: Dataset, view: View, month: string, filters: Fi
     posts,
     moments: ds.moments.filter(inView),
     legend,
-    hiddenDropped: showDropped || stage ? 0 : all.filter((p) => isDropped(p) && platformOk(p) && fixOk(p)).length,
+    hiddenDropped: showDropped || stage ? 0 : all.filter((p) => isDropped(p) && platformOk(p) && fixOk(p) && longFormOk(p)).length,
     stageCounts,
     platformCounts,
-    toFixCount
+    toFixCount,
+    longFormCount
   };
 }

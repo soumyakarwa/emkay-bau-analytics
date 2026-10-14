@@ -20,6 +20,7 @@ export const load: PageServerLoad = async ({ url }) => {
   const stage = url.searchParams.get('stage');
   const platform = platformById(url.searchParams.get('platform'));
   const toFix = url.searchParams.get('fix') === '1';
+  const longForm = url.searchParams.get('longform') === '1';
   return {
     today: now,
     published: ds.brandYears.length > 0,
@@ -29,6 +30,7 @@ export const load: PageServerLoad = async ({ url }) => {
     stage: isStage(stage) ? stage : null,
     platform: platform ?? null,
     toFix,
-    cal: calendarView(ds, view, month, { showDropped, stage: isStage(stage) ? stage : undefined, platform, toFix })
+    longForm,
+    cal: calendarView(ds, view, month, { showDropped, stage: isStage(stage) ? stage : undefined, platform, toFix, longForm })
   };
 };

@@ -1,0 +1,20 @@
+<script lang="ts">
+  // Document icon from Bootstrap Icons 1.13.1 (MIT licence; see bootstrap-icons-LICENSE.txt).
+  // Filled: the long-form article is live. Outlined: it is planned.
+  let { live = false, size = 18, label }: { live?: boolean; size?: number; label?: string } = $props();
+  const FILLED = ['M9.293 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.707A1 1 0 0 0 13.707 4L10 .293A1 1 0 0 0 9.293 0M9.5 3.5v-2l3 3h-2a1 1 0 0 1-1-1M4.5 9a.5.5 0 0 1 0-1h7a.5.5 0 0 1 0 1zM4 10.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m.5 2.5a.5.5 0 0 1 0-1h4a.5.5 0 0 1 0 1z'];
+  const OUTLINE = ['M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5', 'M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z'];
+  const text = $derived(label ?? `Long-form article: ${live ? 'live' : 'planned'}`);
+</script>
+
+<span class="doc" class:live style="--size: {size}px" role="img" aria-label={text} title={text}>
+  <svg viewBox="0 0 16 16" aria-hidden="true">
+    {#each live ? FILLED : OUTLINE as d}<path {d} />{/each}
+  </svg>
+</span>
+
+<style>
+  .doc { display: inline-grid; place-items: center; flex: none; width: var(--size); height: var(--size); color: var(--text-muted); }
+  .doc.live { color: var(--text-primary); }
+  svg { width: 90%; height: 90%; fill: currentColor; }
+</style>

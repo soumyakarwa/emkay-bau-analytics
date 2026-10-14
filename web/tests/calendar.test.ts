@@ -118,4 +118,11 @@ describe('filters', () => {
     expect(v.stageCounts).toEqual({ published: 1, 'in-progress': 0, planned: 0 });
     expect(calendarView(ds, 'im', '2026-08', { toFix: true, platform: 'YouTube' }).posts).toEqual([]);
   });
+
+  it('shows only posts with a long-form article, and counts them', () => {
+    const v = calendarView(ds, 'all', '2026-11', { longForm: true });
+    expect(v.posts.map((p) => [p.brand, p.title])).toEqual([['im', 'Planned post'], ['wealth', 'Planned post']]);
+    expect(calendarView(ds, 'im', '2026-09').longFormCount).toBe(1);
+    expect(calendarView(ds, 'im', '2026-09', { longForm: true, stage: 'planned' }).posts).toEqual([]);
+  });
 });

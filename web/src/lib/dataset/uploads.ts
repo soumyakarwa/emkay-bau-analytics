@@ -5,7 +5,7 @@
 import { BRANDS, brandById, brandByName, type BrandId } from '../brands';
 import { readCalendarFile } from '../workbook';
 import type { ReadOptions } from '../workbook/read-calendar';
-import type { CalendarWorkbook, Issue, ReadResult } from '../workbook/types';
+import type { CalendarWorkbook, Issue, Post, ReadResult } from '../workbook/types';
 import { compareFrameworks, type FrameworkChange } from './changes';
 import type { Store } from './store';
 
@@ -22,7 +22,16 @@ export interface UploadInfo {
   warnings: number;
 }
 
+/**
+ * Bumped whenever the reader starts producing something new for the same workbook. Uploads read
+ * by an older version are read again from their stored original file when loaded, so the whole
+ * history always follows the current rules.
+ */
+export const READER_VERSION = 2;
+
 export interface Upload extends UploadInfo {
+  /** The reader version that produced `workbook` and `issues` (missing on the very first uploads = 1). */
+  readerVersion?: number;
   workbook: CalendarWorkbook;
   /** The warnings the workbook had when it was uploaded. */
   issues: Issue[];
@@ -45,6 +54,8 @@ export interface PublishMeta {
   /** The brand the person is uploading for. A workbook for another brand is refused. */
   forBrand?: BrandId;
   now?: Date;
+  /** The original .xlsx, kept so the upload can be read again by a newer reader. */
+  file?: Uint8Array;
 }
 
 const PREFIX = 'uploads/';
@@ -62,7 +73,7 @@ export async function publishFile(
   bytes: Uint8Array,
   meta: Omit<PublishMeta, 'contentHash'> & ReadOptions
 ): Promise<PublishResult> {
-  return publish(store, readCalendarFile(bytes, { today: meta.today }), { ...meta, contentHash: await sha256(bytes) });
+  return publish(store, readCalendarFile(bytes, { today: meta.today }), { ...meta, file: bytes, contentHash: await sha256(bytes) });
 }
 
 /** Stores an already-read workbook. Separate from publishFile so tests can feed in edited sheets. */
@@ -102,9 +113,11 @@ export async function publish(store: Store, read: ReadResult, meta: PublishMeta)
     contentHash: meta.contentHash,
     posts: wb.posts.length,
     warnings: issues.length,
+    readerVersion: READER_VERSION,
     workbook: wb,
     issues
   };
+  if (meta.file) await store.put(fileKeyFor(upload), toBase64(meta.file));
   await store.put(keyFor(upload), JSON.stringify(upload));
   const before = previous ? await getUpload(store, previous.id) : null;
   return { status: 'published', upload: info(upload), previous, issues, changes: before ? compareFrameworks(before.workbook, wb) : [] };
@@ -112,6 +125,38 @@ export async function publish(store: Store, read: ReadResult, meta: PublishMeta)
 
 function keyFor(u: { brand: string; fy: number; id: string }) {
   return `${PREFIX}${u.brand}/${fyTag(u.fy)}/${u.id}.json`;
+}
+
+function fileKeyFor(u: { brand: string; fy: number; id: string }) {
+  return `${PREFIX}${u.brand}/${fyTag(u.fy)}/${u.id}.xlsx.b64`;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+function fromBase64(b64: string): Uint8Array {
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+}
+
+/** Brings an upload read by an older reader up to date. */
+async function upgrade(store: Store, u: Upload): Promise<Upload> {
+  if ((u.readerVersion ?? 1) >= READER_VERSION) return u;
+  const file = await store.get(fileKeyFor(u));
+  if (file) {
+    // Read it again as of the day it was uploaded, so "missing details" checks match what the uploader saw.
+    const again = readCalendarFile(fromBase64(file), { today: u.uploadedAt.slice(0, 10) });
+    if (again.workbook) return { ...u, readerVersion: READER_VERSION, workbook: again.workbook, issues: again.issues, warnings: again.issues.length };
+  }
+  // The very first uploads kept no file: carry their old fields across instead.
+  const posts = u.workbook.posts.map((p): Post => {
+    if ('longForm' in p) return p;
+    const { longFormLink, ...rest } = p as Omit<Post, 'longForm'> & { longFormLink?: string | null };
+    return { ...rest, longForm: longFormLink ? { state: 'published', url: longFormLink } : null };
+  });
+  return { ...u, readerVersion: READER_VERSION, workbook: { ...u.workbook, posts } };
 }
 
 function info(u: Upload): UploadInfo {
@@ -137,7 +182,7 @@ export async function getUpload(store: Store, id: string): Promise<Upload | null
   const m = /^([a-z]+)-fy(\d{2})-/.exec(id);
   if (!m) return null;
   const raw = await store.get(keyFor({ brand: m[1], fy: 2000 + Number(m[2]), id }));
-  return raw ? (JSON.parse(raw) as Upload) : null;
+  return raw ? upgrade(store, JSON.parse(raw) as Upload) : null;
 }
 
 /** The latest upload for each brand and financial year. */

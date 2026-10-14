@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LongFormIcon from '$lib/calendar/LongFormIcon.svelte';
   import PlatformIcon from '$lib/calendar/PlatformIcon.svelte';
   import PostDetails from '$lib/calendar/PostDetails.svelte';
   import { NEUTRAL, STAGES, shiftMonth, stageOf, type CalendarPost } from '$lib/calendar/calendar';
@@ -21,7 +22,7 @@
     [...new Set([...cal.posts.map((p) => p.date), ...cal.moments.map((m) => m.date)])].sort()
   );
 
-  type Changes = { brand?: string; month?: string; dropped?: boolean; stage?: string | null; platform?: string | null; fix?: boolean };
+  type Changes = { brand?: string; month?: string; dropped?: boolean; stage?: string | null; platform?: string | null; fix?: boolean; longform?: boolean };
   function href(changes: Changes) {
     const brand = changes.brand ?? cal.view;
     const month = changes.month ?? cal.month;
@@ -29,18 +30,20 @@
     const stage = changes.stage === undefined ? data.stage : changes.stage;
     const platform = changes.platform === undefined ? data.platform : changes.platform;
     const fix = changes.fix ?? data.toFix;
+    const longform = changes.longform ?? data.longForm;
     const q = new URLSearchParams();
     if (brand !== 'all') q.set('brand', brand);
     q.set('month', month);
     if (stage) q.set('stage', stage);
     if (platform) q.set('platform', platform.toLowerCase());
     if (fix) q.set('fix', '1');
+    if (longform) q.set('longform', '1');
     if (dropped) q.set('dropped', '1');
     return `?${q}`;
   }
 
   const STAGE_LABEL = { published: 'Published', 'in-progress': 'In progress', planned: 'Planned', dropped: 'Dropped' } as const;
-  const filtered = $derived(!!(data.stage || data.platform || data.toFix));
+  const filtered = $derived(!!(data.stage || data.platform || data.toFix || data.longForm));
   const dayNumber = (iso: string) => Number(iso.slice(8));
   const weekday = (iso: string) =>
     new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -59,12 +62,15 @@
       {p.title ?? 'No title yet'}
     </span>
     <span class="chip-label">{p.label}</span>
-    {#if p.platforms.length || p.problems.length}
+    {#if p.platforms.length || p.problems.length || p.longForm}
       <span class="chip-foot">
         {#each p.platforms as pl}
           <PlatformIcon platform={pl.platform} live={pl.state !== 'planned'} size={20}
             label="{pl.platform}: {pl.state === 'planned' ? 'planned' : pl.state === 'sent' ? 'sent' : 'live'}" />
         {/each}
+        {#if p.longForm}
+          <span class="lf-sep"></span><LongFormIcon live={p.longForm.state === 'published'} size={18} />
+        {/if}
         {#if p.problems.length}
           <span class="warn" title="{p.problems.length} to fix in the workbook">!<span class="visually-hidden"> {p.problems.length} problems to fix</span></span>
         {/if}
@@ -126,18 +132,25 @@
           </a>
         {/each}
       </nav>
+      <nav class="seg" aria-label="Long-form">
+        <a href={href({ longform: !data.longForm })} aria-current={data.longForm ? 'true' : undefined}>
+          <LongFormIcon live={data.longForm} size={16} label="Long-form" />Long-form <span class="count">{cal.longFormCount}</span>
+        </a>
+      </nav>
       <nav class="seg" aria-label="Problems">
         <a href={href({ fix: !data.toFix })} aria-current={data.toFix ? 'true' : undefined}>
           <span class="warn" aria-hidden="true">!</span>To fix <span class="count">{cal.toFixCount}</span>
         </a>
       </nav>
-      {#if filtered}<a class="clear" href={href({ stage: null, platform: null, fix: false })}>Clear filters</a>{/if}
+      {#if filtered}<a class="clear" href={href({ stage: null, platform: null, fix: false, longform: false })}>Clear filters</a>{/if}
     </div>
 
     <p class="key">
       <span><span class="stage published"></span> published</span><span><span class="stage in-progress"></span> in progress</span><span><span class="stage planned"></span> planned</span>
       <span class="key-icons"><PlatformIcon platform="LinkedIn" live size={16} label="Filled: live" /> live
         <PlatformIcon platform="LinkedIn" size={16} label="Outlined: planned" /> planned</span>
+      <span class="key-icons"><LongFormIcon live size={16} label="Long-form article live" /> article live
+        <LongFormIcon size={16} label="Long-form article planned" /> article planned</span>
       <span><span class="warn">!</span> to fix in the workbook</span>
       {#if cal.hiddenDropped}
         <a href={href({ dropped: true })}>Show {cal.hiddenDropped} dropped</a>
@@ -250,6 +263,8 @@
   .chip-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chip-foot { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 3px; }
   .key-icons { display: inline-flex; align-items: center; gap: 4px; }
+  .lf-sep { width: 1px; height: 14px; background: var(--border); margin: 0 1px; }
+  .seg a[aria-current='true'] :global(.doc) { color: #fff; }
 
   .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 10px; }
   .seg { display: flex; flex-wrap: wrap; max-width: 100%; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }

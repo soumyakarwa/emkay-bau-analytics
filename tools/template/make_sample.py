@@ -52,7 +52,7 @@ ROWS = [
     dict(date=D(2026, 9, 9), peg='Research opinions', title='Data post', format='Infographic', owner='Asha Rao',
          status='Published', LinkedIn=LI.format(7), longform='https://example.sharepoint.com/article7'),
     # After "today" in the tests (13 Oct 2026): missing details are not reported
-    dict(date=D(2026, 11, 2), peg='Myths vs reality', title='Planned post', LinkedIn='Planned'),
+    dict(date=D(2026, 11, 2), peg='Myths vs reality', title='Planned post', LinkedIn='Planned', longform='Planned'),
 ]
 TODAY = '2026-10-13'
 BAU_START = '2026-08'

@@ -365,7 +365,9 @@ export function readCalendar(sheets: Sheet[], options: ReadOptions = {}): ReadRe
         if (isUrl(target)) return target;
         report('warning', h, isLocalPath(target)
           ? `The ${h} ${LOCAL_FILE}`
-          : `"${target}" is not a link. ${h} only takes links (starting with http).`);
+          : h === MONTH_COLUMNS.longForm
+            ? `"${target}" is not valid in Long-form. Type Planned, or paste the blog link once the article is live.`
+            : `"${target}" is not a link. ${h} only takes links (starting with http).`);
         return null;
       };
 
@@ -398,7 +400,13 @@ export function readCalendar(sheets: Sheet[], options: ReadOptions = {}): ReadRe
         status,
         platforms,
         copyLink: link(MONTH_COLUMNS.copy),
-        longFormLink: link(MONTH_COLUMNS.longForm),
+        longForm: (() => {
+          const cell = raw(MONTH_COLUMNS.longForm);
+          const value = text(cell);
+          if (!cell.url && value && normalise(value) === 'planned') return { state: 'planned' as const, url: null };
+          const url = link(MONTH_COLUMNS.longForm);
+          return url ? { state: 'published' as const, url } : null;
+        })(),
         referenceLink: link(MONTH_COLUMNS.reference),
         moment,
         source: { sheet: ms.name, row: r }

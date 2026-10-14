@@ -89,11 +89,16 @@
         <p class="muted">None yet.</p>
       {/if}
 
-      {#if post.copyLink || post.longFormLink || post.referenceLink}
+      {#if post.copyLink || post.longForm || post.referenceLink}
         <h3>Links</h3>
         <ul class="links">
           {#if post.copyLink}<li><a href={post.copyLink} target="_blank" rel="noopener noreferrer">Copy</a></li>{/if}
-          {#if post.longFormLink}<li><a href={post.longFormLink} target="_blank" rel="noopener noreferrer">Long-form</a></li>{/if}
+          {#if post.longForm}
+            <li>
+              {#if post.longForm.url}<a href={post.longForm.url} target="_blank" rel="noopener noreferrer">Long-form article</a>
+              {:else}Long-form article <span class="muted">planned</span>{/if}
+            </li>
+          {/if}
           {#if post.referenceLink}<li><a href={post.referenceLink} target="_blank" rel="noopener noreferrer">Reference</a></li>{/if}
         </ul>
       {/if}

@@ -50,6 +50,19 @@ describe('posts', () => {
     expect(wb.posts.find((p) => p.title === 'Post on a retired peg')!.commsTask).toBe('BB');
   });
 
+  it('reads a long-form article as planned or live', () => {
+    const wb = read(base).workbook!;
+    expect(wb.posts.find((p) => p.title === 'Planned post')!.longForm).toEqual({ state: 'planned', url: null });
+    expect(wb.posts.find((p) => p.title === 'Data post')!.longForm).toEqual({ state: 'published', url: 'https://example.sharepoint.com/article7' });
+    expect(wb.posts.find((p) => p.title === 'Three myths')!.longForm).toBeNull();
+  });
+
+  it('reports anything else in Long-form', () => {
+    const r = rowOf(base, 'Aug 2026', 'Three myths');
+    const issue = only(read(patch(base, 'Aug 2026', { [`R${r}`]: { value: 'Yes' } })).issues);
+    expect(issue.message).toContain('"Yes" is not valid in Long-form. Type Planned');
+  });
+
   it('reads platform links, Planned and Sent', () => {
     const wb = read(base).workbook!;
     expect(wb.posts.find((p) => p.title === 'Do not share your OTP')!.platforms).toEqual([

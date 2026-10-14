@@ -47,7 +47,8 @@ export interface Post {
   status: string | null;
   platforms: PlatformEntry[];
   copyLink: string | null;
-  longFormLink: string | null;
+  /** The long-form piece behind the post (a blog article): planned, or live with its link. */
+  longForm: { state: 'planned' | 'published'; url: string | null } | null;
   referenceLink: string | null;
   moment: string | null;
   source: { sheet: string; row: number };
