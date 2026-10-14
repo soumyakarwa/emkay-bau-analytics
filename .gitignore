@@ -1,5 +1,6 @@
-# Calendar workbooks contain staff names and internal links
+# Calendar workbooks and analytics exports contain staff names and internal links
 *.xlsx
+*.xls
 
 __pycache__/
 .venv/

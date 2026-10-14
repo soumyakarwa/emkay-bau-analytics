@@ -25,6 +25,7 @@
   }
   const PAGES = [
     { path: '/', label: 'Calendar' },
+    { path: '/analytics', label: 'Analytics' },
     { path: '/upload', label: 'Upload' }
   ];
 </script>

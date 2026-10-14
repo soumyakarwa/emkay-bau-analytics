@@ -54,6 +54,22 @@ const isUrl = (s: string) => /^https?:\/\//i.test(s);
 /** A path to a file on someone's computer rather than a shared link. */
 const isLocalPath = (s: string) => /^(file:|\.\.?[\\/]|[a-z]:[\\/]|\\\\|\/(users|home)\/)/i.test(s) || /appdata[\\/]/i.test(s) || /^[^\s:]+[\\/][^\s]+\.\w{2,4}$/.test(s);
 const LOCAL_FILE = 'points to a file on one computer, so nobody else can open it. Put the file on SharePoint or OneDrive and paste that link instead.';
+/** Websites each platform's post links come from (WhatsApp has none to check). */
+const PLATFORM_HOSTS: Partial<Record<string, string[]>> = {
+  LinkedIn: ['linkedin.com', 'lnkd.in'],
+  Instagram: ['instagram.com', 'instagr.am'],
+  YouTube: ['youtube.com', 'youtu.be'],
+  X: ['x.com', 'twitter.com', 't.co']
+};
+/** The host of a link, without "www." */
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+};
+const onHost = (host: string, list: string[]) => list.some((h) => host === h || host.endsWith(`.${h}`));
 const LOCAL_POST = 'points to a file on one computer, not to the post. Paste the post\'s web link.';
 
 interface TableView {
@@ -352,7 +368,17 @@ export function readCalendar(sheets: Sheet[], options: ReadOptions = {}): ReadRe
         const value = text(cell);
         const target = cell.url ?? value;
         const url = target && isUrl(target) ? target : null;
-        if (url) platforms.push({ platform: p, state: 'published', url });
+        if (url) {
+          platforms.push({ platform: p, state: 'published', url });
+          const host = hostOf(url);
+          const expected = PLATFORM_HOSTS[p];
+          if (expected && !onHost(host, expected)) {
+            const actual = Object.entries(PLATFORM_HOSTS).find(([, list]) => list && onHost(host, list))?.[0];
+            report('warning', p, actual
+              ? `The ${p} column has ${/^[aeiou]/i.test(actual) ? 'an' : 'a'} ${actual} link. Move it to the ${actual} column and paste the ${p} post link here.`
+              : `The ${p} column has a link to ${host || 'another website'}, not to a ${p} post. Paste the ${p} post link.`);
+          }
+        }
         else if (target && (cell.url || isLocalPath(target))) report('warning', p, `The ${p} link ${LOCAL_POST}`);
         else if (value && normalise(value) === 'planned') platforms.push({ platform: p, state: 'planned', url: null });
         else if (value && p === 'WhatsApp' && normalise(value) === 'sent') platforms.push({ platform: p, state: 'sent', url: null });

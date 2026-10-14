@@ -1,4 +1,5 @@
 import { brandById, type BrandId } from '$lib/brands';
+import { listAnalyticsUploads } from '$lib/analytics/uploads';
 import { latestUploads, listUploads } from '$lib/dataset/uploads';
 import { getStore } from '$lib/server/data';
 import type { PageServerLoad } from './$types';
@@ -15,6 +16,7 @@ export const load: PageServerLoad = async ({ url }) => {
   return {
     brand,
     team,
-    history: history.slice(0, 30).map((u) => ({ ...u, live: latest.get(`${u.brand}|${u.fy}`) === u.id }))
+    history: history.slice(0, 30).map((u) => ({ ...u, live: latest.get(`${u.brand}|${u.fy}`) === u.id })),
+    analyticsHistory: (await listAnalyticsUploads(store, brand ? { brand } : {})).reverse().slice(0, 30)
   };
 };

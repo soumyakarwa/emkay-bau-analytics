@@ -2,6 +2,7 @@
 
 The Emkay BAU microsite (SvelteKit, TypeScript). It reads and checks each brand's calendar
 workbook, keeps every upload, combines the brands into All of Emkay, and shows them on a calendar.
+LinkedIn's analytics exports are laid over the BAU framework on the Analytics page.
 
 ## Set up (once)
 
@@ -32,7 +33,7 @@ The site reads the data folder `web/.data`; set `BAU_DATA_DIR` to read another o
 ## Upload a workbook
 
 Open http://localhost:5173/upload (or click Upload in the header). Pick the brand, fill in
-"Uploaded by", choose the .xlsx and click **Check workbook**. The page shows the workbook's BAU
+"Uploaded by", choose the .xlsx and click **Check file**. The page shows the workbook's BAU
 mix, the framework changes since the last upload, and its problems: blocking ones first, then
 the rest grouped by person. If nothing is blocking, **Publish** makes it live. A file whose
 Brand cell is another brand's is refused, and an identical re-upload publishes nothing. The
@@ -40,6 +41,31 @@ upload history below lists every upload; "Live" is the one the calendar shows.
 
 The header has the pages on the left and, on the right, which part of Emkay you are viewing;
 the brand stays selected when you move between pages.
+
+## LinkedIn analytics
+
+Once a month, per brand: on LinkedIn, open the page's admin view, go to Analytics, and export
+**Content**, **Followers** and **Visitors** for the last 365 days. Upload the three files on the
+Upload page exactly as LinkedIn gives them (.xls); the site tells them apart from workbooks.
+Every upload is kept as a snapshot of the figures on its export day, and the newest figures win.
+A file from a page known to be another brand's is refused (`LINKEDIN_PAGES` in
+`src/lib/analytics/uploads.ts`), and an identical re-upload publishes nothing.
+
+The Analytics page (`/analytics?brand=im`) then shows, month by month:
+
+- the **median per post** by comms task, pillar, peg or format, for BAU posts. Posts are matched
+  to the calendar by the post ID in the link in the LinkedIn column;
+- totals for all BAU posts, posts in the calendar that are not BAU, **Outside BAU** (on LinkedIn
+  but not in the calendar), posts from before the brand's BAU start (a baseline), and all posts;
+- **links to fix** in the workbook: a wrong link, a published post with no link (with the
+  LinkedIn posts from the same days that it probably is), or a link LinkedIn's export does not have;
+- each month's posts with their figures, and the page's new followers, page views and impressions.
+
+Only organic posts at least 7 days old on the export day are counted; sponsored posts and newer
+posts are listed but kept out. The default measure is the **interaction rate**: reactions,
+comments and reposts per impression. LinkedIn's own engagement rate also counts clicks, and on
+carousels (document posts) every page swipe is a click, so it puts carousels at 70-120% against
+3-12% for other formats: it compares formats rather than pegs. It is still there to pick.
 
 ## Passwords
 
@@ -104,6 +130,7 @@ npm run show-emkay -- --brand im --history
 | Folder | What it does |
 | --- | --- |
 | `src/lib/workbook/xlsx.ts` | Opens the .xlsx file: cell values, formulas, links and tables. |
+| `src/lib/workbook/xls.ts` | Opens old binary .xls files (LinkedIn's exports): cell values only. |
 | `src/lib/workbook/contract.ts` | The sheet, table and column names, matching `tools/template/build_workbook.py`. |
 | `src/lib/workbook/read-calendar.ts` | Turns the sheets into posts and problems. |
 | `src/lib/workbook/summary.ts` | Posts per comms task per month, against the brand's own targets. |
@@ -113,7 +140,10 @@ npm run show-emkay -- --brand im --history
 | `src/lib/dataset/dataset.ts` | All of Emkay: the latest upload of every brand and year, combined. |
 | `src/lib/dataset/store.ts`, `src/lib/server/folder-store.ts` | Where uploads are kept: a local folder now, Vercel Blob later. |
 | `src/lib/calendar/` | The calendar: month grid, colours, and the post details panel. |
-| `src/routes/` | The calendar page. |
+| `src/lib/analytics/linkedin.ts` | Reads LinkedIn's content, followers and visitors exports. |
+| `src/lib/analytics/uploads.ts` | Keeps every analytics export, like the workbooks. |
+| `src/lib/analytics/analysis.ts` | Matches posts to the calendar and builds the month-by-month medians. |
+| `src/routes/` | The pages: calendar, analytics, upload, sign-in. |
 | `src/app.css` | Emkay brand colours and Open Sans, from the Emkay guidebook. |
 
 - Pillar and comms task come from the post's peg and the Framework sheet, never from the grey
@@ -131,4 +161,5 @@ npm test
 
 The tests build a sample workbook with the Python template builder and read it back, so they
 need the Python tools set up first (see `tools/README.md`). If the template and the reader ever
-disagree on a name, these tests fail.
+disagree on a name, these tests fail. LinkedIn exports in the tests are made up and written by
+`tests/xls-writer.ts`; real exports are never kept in the repository.

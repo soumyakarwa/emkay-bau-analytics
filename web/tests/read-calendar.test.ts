@@ -70,7 +70,7 @@ describe('posts', () => {
   it('reads platform links, Planned and Sent', () => {
     const wb = read(base).workbook!;
     expect(wb.posts.find((p) => p.title === 'Do not share your OTP')!.platforms).toEqual([
-      { platform: 'LinkedIn', state: 'published', url: 'https://www.linkedin.com/feed/update/urn:li:activity:5' },
+      { platform: 'LinkedIn', state: 'published', url: 'https://www.linkedin.com/feed/update/urn:li:activity:7400000000000000005' },
       { platform: 'WhatsApp', state: 'sent', url: null }
     ]);
     expect(wb.posts.find((p) => p.title === 'Planned post')!.platforms).toEqual([{ platform: 'LinkedIn', state: 'planned', url: null }]);
@@ -140,6 +140,16 @@ describe('warnings', () => {
     const r = rowOf(base, 'Aug 2026', 'Three myths');
     const issue = only(read(patch(base, 'Aug 2026', { [`L${r}`]: { value: 'Post link', url: null } })).issues);
     expect(issue.message).toContain('"Post link" is not valid in LinkedIn');
+  });
+
+  it("a link in another platform's column", () => {
+    const r = rowOf(base, 'Aug 2026', 'Three myths');
+    const insta = read(patch(base, 'Aug 2026', { [`L${r}`]: { value: 'https://www.instagram.com/reel/abc/', url: null } })).issues;
+    expect(only(insta).message).toBe('The LinkedIn column has an Instagram link. Move it to the Instagram column and paste the LinkedIn post link here.');
+    const other = read(patch(base, 'Aug 2026', { [`L${r}`]: { value: 'https://example.com/post', url: null } })).issues;
+    expect(only(other).message).toBe('The LinkedIn column has a link to example.com, not to a LinkedIn post. Paste the LinkedIn post link.');
+    const sub = read(patch(base, 'Aug 2026', { [`L${r}`]: { value: 'https://in.linkedin.com/posts/x-activity-7400000000000000002-AbCd', url: null } })).issues;
+    expect(sub).toEqual([]);
   });
 
   it('a link to a file on one computer', () => {

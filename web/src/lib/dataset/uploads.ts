@@ -27,7 +27,7 @@ export interface UploadInfo {
  * by an older version are read again from their stored original file when loaded, so the whole
  * history always follows the current rules.
  */
-export const READER_VERSION = 2;
+export const READER_VERSION = 3;
 
 export interface Upload extends UploadInfo {
   /** The reader version that produced `workbook` and `issues` (missing on the very first uploads = 1). */

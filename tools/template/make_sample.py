@@ -12,7 +12,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from build_workbook import build  # noqa: E402
 
 D = datetime.date
-LI = 'https://www.linkedin.com/feed/update/urn:li:activity:{}'
+# Post links in the shape LinkedIn uses, with made-up 19-digit post IDs.
+LI = 'https://www.linkedin.com/feed/update/urn:li:activity:74000000000000000{:02d}'
 
 TASKS = [
     ('TL', 'Thought leadership', 'Yes', 0.4, 'Yes', ''),

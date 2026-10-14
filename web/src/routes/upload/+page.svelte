@@ -2,13 +2,25 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { BRANDS, brandById } from '$lib/brands';
   import type { FrameworkChange } from '$lib/dataset/changes';
+  import type { AnalyticsUploadInfo } from '$lib/analytics/uploads';
   import type { UploadInfo } from '$lib/dataset/uploads';
   import type { Summary } from '$lib/workbook/summary';
   import type { Issue } from '$lib/workbook/types';
 
   let { data } = $props();
 
-  interface Result {
+  interface LinkedInResult {
+    type: 'linkedin';
+    status: 'published' | 'ready' | 'unchanged' | 'refused';
+    message: string | null;
+    contentHash: string;
+    fileName: string;
+    upload: AnalyticsUploadInfo | null;
+    export: { kind: 'content' | 'followers' | 'visitors'; page: string | null; from: string; to: string; posts: number; sponsored: number; days: number } | null;
+  }
+
+  interface CalendarResult {
+    type: 'calendar';
     status: 'published' | 'ready' | 'unchanged' | 'refused';
     contentHash: string;
     fileName: string;
@@ -18,6 +30,10 @@
     changes: FrameworkChange[];
     workbook: { brand: string; fy: number; bauStart: string | null; posts: number; summary: Summary } | null;
   }
+
+  type Result = CalendarResult | LinkedInResult;
+  const KIND_LABEL = { content: 'LinkedIn content (posts)', followers: 'LinkedIn followers', visitors: 'LinkedIn visitors' };
+  const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
   const allowed = $derived(BRANDS.filter((b) => data.uploadBrands.includes(b.id)));
   let brand = $derived(data.brand && data.uploadBrands.includes(data.brand) ? data.brand : allowed.length === 1 ? allowed[0].id : '');
@@ -34,11 +50,11 @@
   const pct = (n: number | null) => (n === null ? '–' : `${Math.round(n * 100)}%`);
   const fy = (n: number) => `FY${String(n).slice(2)}`;
 
-  const blocking = $derived(result ? result.issues.filter((i) => i.level === 'error') : []);
+  const blocking = $derived(result?.type === 'calendar' ? result.issues.filter((i) => i.level === 'error') : []);
   /** Warnings grouped by the person who should fix them. */
   const warningsByOwner = $derived.by(() => {
     const groups = new Map<string, Issue[]>();
-    for (const i of result?.issues ?? []) {
+    for (const i of result?.type === 'calendar' ? result.issues : []) {
       if (i.level === 'error') continue;
       const k = i.owner ?? 'No owner named';
       groups.set(k, [...(groups.get(k) ?? []), i]);
@@ -91,8 +107,11 @@
 </svelte:head>
 
 <div class="page">
-  <h1>Upload a calendar workbook</h1>
-  <p class="lede">The site checks the workbook first and shows what would change. Nothing is published until you click Publish.</p>
+  <h1>Upload</h1>
+  <p class="lede">
+    A brand's calendar workbook (.xlsx), or its LinkedIn analytics exports (.xls, exactly as LinkedIn gives them).
+    The site checks the file first and shows what it found. Nothing is published until you click Publish.
+  </p>
 
   {#if !allowed.length}
     <p class="banner neutral">
@@ -122,25 +141,65 @@
       </datalist>
     </label>
     <label>
-      <span>Workbook</span>
+      <span>File</span>
       <input
         bind:this={fileInput}
         type="file"
-        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
         required
         disabled={!!busy}
         onchange={(e) => { file = e.currentTarget.files?.[0] ?? null; result = null; failure = null; }}
       />
     </label>
     <div class="actions">
-      <button type="submit" class="primary" disabled={!file || !brand || !!busy}>{busy === 'check' ? 'Checking…' : 'Check workbook'}</button>
+      <button type="submit" class="primary" disabled={!file || !brand || !!busy}>{busy === 'check' ? 'Checking…' : 'Check file'}</button>
     </div>
   </form>
   {/if}
 
   {#if failure}<p class="banner critical" role="alert">{failure}</p>{/if}
 
-  {#if result}
+  {#if result?.type === 'linkedin'}
+    {@const x = result.export}
+    <section class="card result" aria-live="polite">
+      {#if result.status === 'refused'}
+        <p class="banner critical"><strong>Can't publish this file.</strong> {result.message}</p>
+      {:else if result.status === 'unchanged'}
+        <p class="banner neutral">
+          <strong>Nothing new.</strong> This exact file was already uploaded
+          {#if result.upload}({when(result.upload.uploadedAt)}{result.upload.uploadedBy ? `, by ${result.upload.uploadedBy}` : ''}){/if}.
+        </p>
+      {:else if result.status === 'ready'}
+        <p class="banner good"><strong>Ready to publish</strong> the {x ? KIND_LABEL[x.kind] : ''} export for {brandName(brand)}.</p>
+      {:else}
+        <p class="banner good">
+          <strong>Published.</strong> The {x ? KIND_LABEL[x.kind] : ''} figures for {brandName(brand)} are added.
+          <a href="/analytics?brand={brand}">See the analytics</a>
+        </p>
+      {/if}
+      {#if x}
+        <dl class="facts">
+          <dt>File</dt><dd>{KIND_LABEL[x.kind]}{x.page ? ` · LinkedIn page "${x.page}"` : ''}</dd>
+          <dt>Covers</dt><dd>{day(x.from)} to {day(x.to)}</dd>
+          {#if x.kind === 'content'}
+            <dt>Posts</dt><dd>{x.posts}{x.sponsored ? ` (${x.sponsored} sponsored, kept separate)` : ''}</dd>
+          {:else}
+            <dt>Days</dt><dd>{x.days}</dd>
+          {/if}
+        </dl>
+        <p class="note">
+          Figures are as of {day(x.to)}. Newer exports update older posts' figures; every upload is kept.
+          {#if x.kind === 'content'}Each post is matched to the calendar by the link in its LinkedIn column.{/if}
+        </p>
+      {/if}
+      <div class="actions">
+        {#if result.status === 'ready'}
+          <button class="primary" onclick={() => send('publish')} disabled={!!busy}>{busy === 'publish' ? 'Publishing…' : 'Publish'}</button>
+        {/if}
+        <button onclick={reset} disabled={!!busy}>{result.status === 'published' ? 'Upload another file' : 'Choose another file'}</button>
+      </div>
+    </section>
+  {:else if result}
     <section class="card result" aria-live="polite">
       {#if result.status === 'refused'}
         <p class="banner critical">
@@ -256,6 +315,32 @@
       <p class="note">Nothing uploaded yet.</p>
     {/if}
   </section>
+
+  {#if data.analyticsHistory.length}
+    <section class="history">
+      <h2>Analytics uploads{brand ? ` · ${brandName(brand)}` : ''}</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Uploaded</th>{#if !brand}<th>Brand</th>{/if}<th>Export</th><th>Covers</th><th>By</th><th>File</th><th class="num">Posts</th></tr>
+          </thead>
+          <tbody>
+            {#each data.analyticsHistory as u (u.id)}
+              <tr>
+                <td>{when(u.uploadedAt)}</td>
+                {#if !brand}<td>{brandName(u.brand)}</td>{/if}
+                <td>{KIND_LABEL[u.kind]}</td>
+                <td>{day(u.from)} – {day(u.to)}</td>
+                <td>{u.uploadedBy ?? '—'}</td>
+                <td class="file">{u.fileName}</td>
+                <td class="num">{u.kind === 'content' ? u.posts : '–'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {/if}
 </div>
 
 <style>
@@ -283,6 +368,9 @@
   td { padding: 6px 8px; border-bottom: 1px solid var(--weekend); }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .note { color: var(--text-muted); font-size: 13px; margin: 6px 0; }
+  .facts { display: grid; grid-template-columns: 90px 1fr; gap: 6px 12px; margin: 12px 0 4px; font-size: 14px; }
+  .facts dt { color: var(--text-muted); }
+  .facts dd { margin: 0; }
   .changes { margin: 6px 0; padding-left: 18px; }
   .changes li { margin: 4px 0; }
   .changes li.moved { font-weight: 600; }
