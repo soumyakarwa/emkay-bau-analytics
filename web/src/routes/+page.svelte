@@ -223,13 +223,19 @@
   }
   .moment { font-size: 11px; color: var(--text-secondary); font-style: italic; overflow-wrap: anywhere; }
 
+  /* Guidebook: tints of the brand colour for card fills, the colour itself for the one mark to read. */
   .chip {
     display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; cursor: pointer;
-    padding: 5px 6px 5px 9px; border-radius: 6px; border: 1px solid var(--border);
-    background: var(--surface-1); box-shadow: inset 4px 0 0 var(--c);
+    padding: 5px 6px 5px 11px; border-radius: 6px;
+    border: 1px solid color-mix(in srgb, var(--c) 35%, var(--border));
+    background: color-mix(in srgb, var(--c) 11%, var(--surface-2));
+    box-shadow: inset 6px 0 0 var(--c);
   }
-  .chip:hover { border-color: var(--c); }
-  .chip.not-bau { box-shadow: none; border-left: 4px dashed var(--c); padding-left: 6px; }
+  .chip:hover { border-color: var(--c); background: color-mix(in srgb, var(--c) 17%, var(--surface-2)); }
+  .chip.not-bau {
+    box-shadow: none; border-left: 6px dashed var(--c); padding-left: 7px;
+    background: var(--surface-2); border-color: var(--border);
+  }
   .swatch.not-bau { outline: 1px dashed var(--text-muted); outline-offset: -1px; }
   .chip.dropped .chip-title { text-decoration: line-through; color: var(--text-muted); }
   .chip-title { font-size: 12px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
