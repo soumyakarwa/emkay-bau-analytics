@@ -65,6 +65,14 @@ describe('publishing', () => {
     expect(await listUploads(store)).toEqual([]);
   });
 
+  it('can check a workbook without storing it', async () => {
+    const store = memoryStore();
+    const r = await publishFile(store, im.bytes, { ...at('2026-10-13T09:00:00Z'), today: TODAY, dryRun: true });
+    expect(r.status).toBe('ready');
+    expect(r.workbook?.posts).toHaveLength(9);
+    expect(await store.list('uploads/')).toEqual([]);
+  });
+
   it('stores nothing new when the file is identical to the latest upload', async () => {
     const store = memoryStore();
     await publishFile(store, im.bytes, { ...at('2026-10-13T09:00:00Z'), today: TODAY });

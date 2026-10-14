@@ -50,6 +50,10 @@ describe('posts', () => {
     expect(wb.posts.find((p) => p.title === 'Post on a retired peg')!.commsTask).toBe('BB');
   });
 
+  it('reads special characters', () => {
+    expect(read(base).workbook!.posts.find((p) => p.title === 'Data post')!.details).toBe('Charts… and “quotes” & more');
+  });
+
   it('reads a long-form article as planned or live', () => {
     const wb = read(base).workbook!;
     expect(wb.posts.find((p) => p.title === 'Planned post')!.longForm).toEqual({ state: 'planned', url: null });

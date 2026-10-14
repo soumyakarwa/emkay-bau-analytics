@@ -13,7 +13,7 @@ This is version 2, built one step at a time. The first version is on the `main` 
 2. **Reader and checker** (done): reads one brand's workbook and lists its problems. See [`web/`](web/).
 3. **All of Emkay** (done): every upload kept, and the latest of each brand combined into one dataset. See [`web/`](web/).
 4. **Calendar** (done): all posts on a month calendar, filtered by brand. See [`web/`](web/).
-5. Upload per brand.
+5. **Upload page** (done): each brand checks, previews and publishes its workbook in the browser. See [`web/`](web/).
 6. Storage, built for Vercel Blob.
 7. Sign-in.
 8. Deploy to Vercel.

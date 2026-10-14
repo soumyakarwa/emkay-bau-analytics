@@ -38,9 +38,14 @@ export interface Upload extends UploadInfo {
 }
 
 export interface PublishResult {
-  /** published: stored as the new latest. unchanged: identical to the latest, nothing stored. refused: blocking problems. */
-  status: 'published' | 'unchanged' | 'refused';
+  /**
+   * published: stored as the new latest. ready: would be published (a check only, nothing stored).
+   * unchanged: identical to the latest, nothing stored. refused: blocking problems.
+   */
+  status: 'published' | 'ready' | 'unchanged' | 'refused';
   upload: UploadInfo | null;
+  /** The workbook as read (not set when it could not be read at all). */
+  workbook: CalendarWorkbook | null;
   previous: UploadInfo | null;
   issues: Issue[];
   /** Framework changes since the previous upload of the same brand and year. */
@@ -56,6 +61,8 @@ export interface PublishMeta {
   now?: Date;
   /** The original .xlsx, kept so the upload can be read again by a newer reader. */
   file?: Uint8Array;
+  /** Check everything and report what would happen, but store nothing. */
+  dryRun?: boolean;
 }
 
 const PREFIX = 'uploads/';
@@ -81,7 +88,7 @@ export async function publish(store: Store, read: ReadResult, meta: PublishMeta)
   const issues = [...read.issues];
   const refuse = (message?: string): PublishResult => {
     if (message) issues.unshift({ level: 'error', sheet: 'Start here', cell: null, owner: null, post: null, message });
-    return { status: 'refused', upload: null, previous: null, issues, changes: [] };
+    return { status: 'refused', upload: null, workbook: read.workbook, previous: null, issues, changes: [] };
   };
   const wb = read.workbook;
   if (!wb) return refuse();
@@ -98,8 +105,10 @@ export async function publish(store: Store, read: ReadResult, meta: PublishMeta)
   const history = await listUploads(store, { brand: brand.id, fy: wb.fy });
   const previous = history.at(-1) ?? null;
   if (previous && previous.contentHash === meta.contentHash) {
-    return { status: 'unchanged', upload: previous, previous, issues, changes: [] };
+    return { status: 'unchanged', upload: previous, workbook: wb, previous, issues, changes: [] };
   }
+  const before = previous ? await getUpload(store, previous.id) : null;
+  const changes = before ? compareFrameworks(before.workbook, wb) : [];
 
   const uploadedAt = (meta.now ?? new Date()).toISOString();
   const id = `${brand.id}-${fyTag(wb.fy)}-${stamp(new Date(uploadedAt))}`;
@@ -117,10 +126,10 @@ export async function publish(store: Store, read: ReadResult, meta: PublishMeta)
     workbook: wb,
     issues
   };
+  if (meta.dryRun) return { status: 'ready', upload: info(upload), workbook: wb, previous, issues, changes };
   if (meta.file) await store.put(fileKeyFor(upload), toBase64(meta.file));
   await store.put(keyFor(upload), JSON.stringify(upload));
-  const before = previous ? await getUpload(store, previous.id) : null;
-  return { status: 'published', upload: info(upload), previous, issues, changes: before ? compareFrameworks(before.workbook, wb) : [] };
+  return { status: 'published', upload: info(upload), workbook: wb, previous, issues, changes };
 }
 
 function keyFor(u: { brand: string; fy: number; id: string }) {

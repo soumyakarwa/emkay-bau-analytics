@@ -29,6 +29,18 @@ and month are in the address (e.g. `/?brand=wealth&month=2026-10&stage=published
 
 The site reads the data folder `web/.data`; set `BAU_DATA_DIR` to read another one.
 
+## Upload a workbook
+
+Open http://localhost:5173/upload (or click Upload in the header). Pick the brand, fill in
+"Uploaded by", choose the .xlsx and click **Check workbook**. The page shows the workbook's BAU
+mix, the framework changes since the last upload, and its problems: blocking ones first, then
+the rest grouped by person. If nothing is blocking, **Publish** makes it live. A file whose
+Brand cell is another brand's is refused, and an identical re-upload publishes nothing. The
+upload history below lists every upload; "Live" is the one the calendar shows.
+
+The header has the pages on the left and, on the right, which part of Emkay you are viewing;
+the brand stays selected when you move between pages.
+
 ## Check a workbook
 
 ```bash
@@ -40,9 +52,9 @@ every problem, grouped by the person who should fix it. Nothing is stored. Add
 `--today 2026-10-13` to check as of another date. It exits with an error code if anything would
 block publishing.
 
-## Publish workbooks and see All of Emkay
+## Publish workbooks and see All of Emkay from the terminal
 
-Until the upload page exists, publishing happens from the terminal into a local data folder
+The same publishing can be done from the terminal, into the same local data folder
 (`web/.data`, which Git ignores because it holds real calendars):
 
 ```bash

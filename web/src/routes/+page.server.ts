@@ -2,12 +2,9 @@ import { BRANDS, brandById } from '$lib/brands';
 import { calendarView, isMonth, isStage, monthGrid, platformById, type View } from '$lib/calendar/calendar';
 import { loadDataset } from '$lib/dataset/dataset';
 import { getStore } from '$lib/server/data';
+import { today } from '$lib/server/today';
 import type { PageServerLoad } from './$types';
 
-/** Today in India, where the team works: YYYY-MM-DD. */
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-}
 
 export const load: PageServerLoad = async ({ url }) => {
   const ds = await loadDataset(getStore());

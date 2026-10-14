@@ -49,7 +49,7 @@ ROWS = [
     # September
     dict(date=D(2026, 9, 1), peg='Old peg', title='Post on a retired peg', format='Carousel', owner='Asha Rao',
          status='Published', LinkedIn=LI.format(6)),
-    dict(date=D(2026, 9, 9), peg='Research opinions', title='Data post', format='Infographic', owner='Asha Rao',
+    dict(date=D(2026, 9, 9), peg='Research opinions', title='Data post', details='Charts… and “quotes” & more', format='Infographic', owner='Asha Rao',
          status='Published', LinkedIn=LI.format(7), longform='https://example.sharepoint.com/article7'),
     # After "today" in the tests (13 Oct 2026): missing details are not reported
     dict(date=D(2026, 11, 2), peg='Myths vs reality', title='Planned post', LinkedIn='Planned', longform='Planned'),

@@ -40,6 +40,8 @@ const parser = new XMLParser({
   textNodeName: '#text',
   parseTagValue: false,
   parseAttributeValue: false,
+  // Decode character references such as &#8230; (…), which some tools write instead of the character.
+  htmlEntities: true,
   trimValues: false,
   removeNSPrefix: true,
   isArray: (name) => ['sheet', 'row', 'c', 'si', 'r', 'Relationship', 'hyperlink', 'tablePart'].includes(name)

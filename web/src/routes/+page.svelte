@@ -9,10 +9,6 @@
   let selected: CalendarPost | null = $state(null);
 
   const cal = $derived(data.cal);
-  /** The guidebook's one substitution: Trust Teal for the group, the division colour for IM and Wealth. */
-  const band = $derived(
-    cal.view === 'im' ? 'var(--investment-pine)' : cal.view === 'wealth' ? 'var(--wealth-indigo)' : 'var(--trust-teal)'
-  );
   const monthName = $derived(
     new Date(`${cal.month}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
   );
@@ -79,19 +75,8 @@
   </button>
 {/snippet}
 
-<header class="band" style="--band: {band}">
-  <div class="band-inner">
-    <h1>Emkay BAU calendar</h1>
-    <nav class="brands" aria-label="Brand">
-      <a href={href({ brand: 'all' })} aria-current={cal.view === 'all' ? 'page' : undefined}>All of Emkay</a>
-      {#each data.brands as b}
-        <a href={href({ brand: b.id })} aria-current={cal.view === b.id ? 'page' : undefined} title={b.name}>{b.short}</a>
-      {/each}
-    </nav>
-  </div>
-</header>
-
-<div class="page" style="--band: {band}">
+<div class="page">
+  <h1 class="visually-hidden">Calendar</h1>
 
   {#if !data.published}
     <section class="empty">
@@ -197,16 +182,6 @@
 <PostDetails post={selected} onclose={() => (selected = null)} />
 
 <style>
-  .band { background: var(--band); color: #fff; }
-  .band-inner {
-    max-width: 1400px; margin: 0 auto; padding: 14px 16px;
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
-  }
-  h1 { margin: 0; font-size: 20px; letter-spacing: 0.01em; }
-  .brands { display: flex; gap: 4px; }
-  .brands a { padding: 6px 14px; border-radius: 999px; color: #fff; text-decoration: none; font-weight: 600; opacity: 0.85; }
-  .brands a:hover { opacity: 1; background: rgb(255 255 255 / 0.12); }
-  .brands a[aria-current='page'] { background: var(--growth-orange); color: var(--text-primary); opacity: 1; }
   .page { max-width: 1400px; margin: 0 auto; padding: 16px; }
 
   .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; margin-bottom: 8px; }
