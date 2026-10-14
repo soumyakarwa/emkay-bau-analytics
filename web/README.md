@@ -22,7 +22,7 @@ npm run dev
 
 and open http://localhost:5173. It opens on All of Emkay for the current month, coloured by
 brand; pick a brand to see only its posts, coloured by its own comms tasks. Filter by stage
-(published, in progress, planned) and by platform; each post shows its platforms' logos, filled
+(published, in progress, planned), by platform, and to posts with something to fix; each post shows its platforms' logos, filled
 when live and outlined when planned. Click a post for its details, links and any problems to fix. On a phone the month shows as a list of days. The brand
 and month are in the address (e.g. `/?brand=wealth&month=2026-10&stage=published&platform=linkedin`), so a view can be shared.
 

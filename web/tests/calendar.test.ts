@@ -109,4 +109,13 @@ describe('filters', () => {
     expect(v.stageCounts.planned).toBe(2);
     expect(v.platformCounts.Instagram).toBe(0);
   });
+
+  it('shows only posts with something to fix in the workbook, and counts them', () => {
+    const all = calendarView(ds, 'im', '2026-08');
+    expect(all.toFixCount).toBe(1);
+    const v = calendarView(ds, 'im', '2026-08', { toFix: true });
+    expect(v.posts.map((p) => p.title)).toEqual(['Three myths']);
+    expect(v.stageCounts).toEqual({ published: 1, 'in-progress': 0, planned: 0 });
+    expect(calendarView(ds, 'im', '2026-08', { toFix: true, platform: 'YouTube' }).posts).toEqual([]);
+  });
 });

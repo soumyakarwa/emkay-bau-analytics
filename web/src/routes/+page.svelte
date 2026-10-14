@@ -21,24 +21,26 @@
     [...new Set([...cal.posts.map((p) => p.date), ...cal.moments.map((m) => m.date)])].sort()
   );
 
-  type Changes = { brand?: string; month?: string; dropped?: boolean; stage?: string | null; platform?: string | null };
+  type Changes = { brand?: string; month?: string; dropped?: boolean; stage?: string | null; platform?: string | null; fix?: boolean };
   function href(changes: Changes) {
     const brand = changes.brand ?? cal.view;
     const month = changes.month ?? cal.month;
     const dropped = changes.dropped ?? data.showDropped;
     const stage = changes.stage === undefined ? data.stage : changes.stage;
     const platform = changes.platform === undefined ? data.platform : changes.platform;
+    const fix = changes.fix ?? data.toFix;
     const q = new URLSearchParams();
     if (brand !== 'all') q.set('brand', brand);
     q.set('month', month);
     if (stage) q.set('stage', stage);
     if (platform) q.set('platform', platform.toLowerCase());
+    if (fix) q.set('fix', '1');
     if (dropped) q.set('dropped', '1');
     return `?${q}`;
   }
 
   const STAGE_LABEL = { published: 'Published', 'in-progress': 'In progress', planned: 'Planned', dropped: 'Dropped' } as const;
-  const filtered = $derived(!!(data.stage || data.platform));
+  const filtered = $derived(!!(data.stage || data.platform || data.toFix));
   const dayNumber = (iso: string) => Number(iso.slice(8));
   const weekday = (iso: string) =>
     new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -124,7 +126,12 @@
           </a>
         {/each}
       </nav>
-      {#if filtered}<a class="clear" href={href({ stage: null, platform: null })}>Clear filters</a>{/if}
+      <nav class="seg" aria-label="Problems">
+        <a href={href({ fix: !data.toFix })} aria-current={data.toFix ? 'true' : undefined}>
+          <span class="warn" aria-hidden="true">!</span>To fix <span class="count">{cal.toFixCount}</span>
+        </a>
+      </nav>
+      {#if filtered}<a class="clear" href={href({ stage: null, platform: null, fix: false })}>Clear filters</a>{/if}
     </div>
 
     <p class="key">
