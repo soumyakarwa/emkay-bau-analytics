@@ -15,7 +15,7 @@ This is version 2, built one step at a time. The first version is on the `main` 
 4. **Calendar** (done): all posts on a month calendar, filtered by brand. See [`web/`](web/).
 5. **Upload page** (done): each brand checks, previews and publishes its workbook in the browser. See [`web/`](web/).
 6. Storage, built for Vercel Blob.
-7. Sign-in.
+7. **Sign-in** (done): a team password to view, and one upload password per brand. See [`web/`](web/).
 8. Deploy to Vercel.
 9. Analytics from the platforms, matched to posts by their links.
 

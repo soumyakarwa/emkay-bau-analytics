@@ -19,7 +19,8 @@
     workbook: { brand: string; fy: number; bauStart: string | null; posts: number; summary: Summary } | null;
   }
 
-  let brand = $derived(data.brand ?? '');
+  const allowed = $derived(BRANDS.filter((b) => data.uploadBrands.includes(b.id)));
+  let brand = $derived(data.brand && data.uploadBrands.includes(data.brand) ? data.brand : allowed.length === 1 ? allowed[0].id : '');
   let uploadedBy = $state('');
   let file = $state<File | null>(null);
   let fileInput = $state<HTMLInputElement>();
@@ -93,12 +94,24 @@
   <h1>Upload a calendar workbook</h1>
   <p class="lede">The site checks the workbook first and shows what would change. Nothing is published until you click Publish.</p>
 
+  {#if !allowed.length}
+    <p class="banner neutral">
+      Your sign-in can view the site but not upload. To upload a brand's workbook,
+      <a href="/login?next=/upload">sign in with that brand's upload password</a>.
+    </p>
+  {:else}
+  {#if data.brand && !data.uploadBrands.includes(data.brand)}
+    <p class="banner neutral">
+      You can't upload for {brandName(data.brand)} with your sign-in.
+      <a href="/login?next=/upload%3Fbrand%3D{data.brand}">Sign in with its upload password</a> to add it.
+    </p>
+  {/if}
   <form class="card" onsubmit={(e) => { e.preventDefault(); send('check'); }}>
     <label>
       <span>Brand</span>
       <select value={brand} onchange={(e) => chooseBrand(e.currentTarget.value)} required disabled={!!busy}>
         <option value="" disabled>Choose the brand you are uploading for</option>
-        {#each BRANDS as b}<option value={b.id}>{b.name}</option>{/each}
+        {#each allowed as b}<option value={b.id}>{b.name}</option>{/each}
       </select>
     </label>
     <label>
@@ -123,6 +136,7 @@
       <button type="submit" class="primary" disabled={!file || !brand || !!busy}>{busy === 'check' ? 'Checking…' : 'Check workbook'}</button>
     </div>
   </form>
+  {/if}
 
   {#if failure}<p class="banner critical" role="alert">{failure}</p>{/if}
 

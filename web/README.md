@@ -41,6 +41,28 @@ upload history below lists every upload; "Live" is the one the calendar shows.
 The header has the pages on the left and, on the right, which part of Emkay you are viewing;
 the brand stays selected when you move between pages.
 
+## Passwords
+
+While you work on your own computer with no passwords set, sign-in is off and everyone can do
+everything. A live site needs all five settings below; without them (or with short or repeated
+passwords) every page shows "Site locked", so it can never go live unprotected.
+
+| Setting | What it unlocks |
+| --- | --- |
+| `SITE_PASSWORD` | Viewing the calendar. Give it to the whole team. |
+| `UPLOAD_PASSWORD_GLOBAL` | Viewing, and uploading Emkay Global's workbook. Give it to Global's POCs. |
+| `UPLOAD_PASSWORD_IM` | Viewing, and uploading Emkay Investment Managers' workbook. |
+| `UPLOAD_PASSWORD_WEALTH` | Viewing, and uploading Emkay Wealth Management's workbook. |
+| `AUTH_SECRET` | Nobody types it: a random string (32+ characters) that signs sign-in cookies. Generate one with `openssl rand -base64 48`. |
+
+- Use long passphrases (12+ characters), such as four random words. All five values must differ.
+- On your computer, put them in `web/.env` (copy `web/.env.example`). Git ignores `.env`; never
+  commit it. On the host, enter them in its environment-variable settings.
+- Sign-ins last 30 days. Signing in with a second brand's upload password adds that brand.
+- **Changing a password signs out everyone who used it**: do this when someone leaves.
+  Changing `AUTH_SECRET` signs out everyone.
+- After eight wrong passwords from one address, sign-in pauses for ten minutes.
+
 ## Check a workbook
 
 ```bash

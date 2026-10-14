@@ -12,7 +12,7 @@ import type { RequestHandler } from './$types';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
   const form = await request.formData();
   const mode = form.get('mode');
   const brand = String(form.get('brand') ?? '');
@@ -20,6 +20,9 @@ export const POST: RequestHandler = async ({ request }) => {
   const uploadedBy = String(form.get('uploadedBy') ?? '').trim() || null;
   if (mode !== 'check' && mode !== 'publish') error(400, 'Unknown mode.');
   if (!brandById(brand)) error(400, 'Pick the brand you are uploading for.');
+  if (!locals.access?.uploadBrands.includes(brand as BrandId)) {
+    error(403, `Your sign-in cannot upload for ${brandById(brand)!.name}. Sign in with its upload password first.`);
+  }
   if (!(file instanceof File) || file.size === 0) error(400, 'Choose a workbook (.xlsx) to upload.');
   if (file.size > MAX_BYTES) error(400, 'That file is too large for a calendar workbook (over 10 MB).');
   if (!/\.xlsx$/i.test(file.name)) error(400, 'Choose an Excel workbook (.xlsx).');

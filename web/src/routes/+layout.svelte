@@ -3,7 +3,7 @@
   import { page } from '$app/state';
   import { BRANDS, brandById } from '$lib/brands';
 
-  let { children } = $props();
+  let { children, data } = $props();
 
   const brand = $derived(brandById(page.url.searchParams.get('brand') ?? '')?.id ?? 'all');
   /** The guidebook's one substitution: Trust Teal for the group, the division colour for IM and Wealth. */
@@ -34,17 +34,22 @@
     <div class="band-inner">
       <nav class="pages" aria-label="Pages">
         <span class="site">Emkay BAU</span>
-        {#each PAGES as p}
+        {#if data.signedIn}{#each PAGES as p}
           <a href={to(p.path)} aria-current={page.url.pathname === p.path ? 'page' : undefined}>{p.label}</a>
-        {/each}
+        {/each}{/if}
       </nav>
+      {#if data.signedIn}
       <nav class="brands" aria-label="Viewing">
         <span class="viewing">Viewing</span>
         <a href={withBrand('all')} aria-current={brand === 'all' ? 'true' : undefined}>All of Emkay</a>
         {#each BRANDS as b}
           <a href={withBrand(b.id)} aria-current={brand === b.id ? 'true' : undefined} title={b.name}>{b.short}</a>
         {/each}
+        {#if data.authEnabled && page.url.pathname !== '/login'}
+          <form method="POST" action="/logout" class="signout"><button type="submit">Sign out</button></form>
+        {/if}
       </nav>
+      {/if}
     </div>
   </header>
 
@@ -69,4 +74,10 @@
   .brands a { padding: 6px 14px; border-radius: 999px; color: #fff; text-decoration: none; font-weight: 600; opacity: 0.85; }
   .brands a:hover { opacity: 1; background: rgb(255 255 255 / 0.12); }
   .brands a[aria-current='true'] { background: var(--growth-orange); color: var(--text-primary); opacity: 1; }
+  .signout { margin-left: 12px; }
+  .signout button {
+    background: none; border: 1px solid rgb(255 255 255 / 0.5); color: #fff; border-radius: 999px;
+    padding: 5px 12px; font-weight: 600; cursor: pointer;
+  }
+  .signout button:hover { background: rgb(255 255 255 / 0.12); }
 </style>
