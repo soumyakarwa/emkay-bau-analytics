@@ -71,6 +71,7 @@ describe('one brand', () => {
     ]);
     expect(v.posts.find((p) => p.title === 'Do not share your OTP')!.colour).toBe('not-bau');
     expect(v.posts.find((p) => p.title === 'Three myths')!.label).toBe('TL · Myths vs reality');
+    expect(v.posts.find((p) => p.title === 'Three myths')!.commsTaskName).toBe('Thought leadership');
   });
 
   it("carries the post's problems for the warning dot", () => {

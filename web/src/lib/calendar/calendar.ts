@@ -105,6 +105,8 @@ export function taskColours(year: BrandYear): Map<string, string> {
 
 export interface CalendarPost extends DatasetPost {
   colour: string;
+  /** The comms task's full name (e.g. "Market leadership"), or null without a valid peg. */
+  commsTaskName: string | null;
   /** Short line under the title: comms task and peg (brand view) or brand (All of Emkay). */
   label: string;
 }
@@ -177,6 +179,7 @@ export function calendarView(ds: Dataset, view: View, month: string, filters: Fi
     .map((p) => ({
       ...p,
       colour: colourOf(p),
+      commsTaskName: yearOf(p)?.commsTasks.find((t) => t.code === p.commsTask)?.name ?? null,
       label: view === 'all'
         ? [brandShort(p.brand), p.commsTask].filter(Boolean).join(' · ')
         : [p.commsTask, p.peg].filter(Boolean).join(' · ') || 'No valid peg'

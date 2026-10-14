@@ -58,10 +58,13 @@
       {#if post.details}<p class="details">{post.details}</p>{/if}
 
       <dl>
-        <dt>Peg</dt>
-        <dd>
-          {#if post.peg}{post.peg} <span class="muted">· {post.pillar} · {post.commsTask}</span>{:else}<span class="muted">No valid peg, so not counted in the BAU mix</span>{/if}
-        </dd>
+        {#if post.peg}
+          <dt>Comms task</dt><dd>{post.commsTaskName ?? post.commsTask}</dd>
+          <dt>Pillar</dt><dd>{post.pillar}</dd>
+          <dt>Peg</dt><dd>{post.peg}</dd>
+        {:else}
+          <dt>Peg</dt><dd class="muted">No valid peg, so not counted in the BAU mix</dd>
+        {/if}
         {#if post.beforeBauStart}
           <dt>BAU</dt><dd class="muted">Before this brand's BAU started: kept as a baseline, not counted</dd>
         {:else if post.countsAsBau === false}
@@ -134,7 +137,7 @@
   }
   .close:hover { background: var(--weekend); }
   .details { margin: 0 0 12px; color: var(--text-secondary); }
-  dl { display: grid; grid-template-columns: 84px 1fr; gap: 6px 12px; margin: 12px 0 0; }
+  dl { display: grid; grid-template-columns: 104px 1fr; gap: 6px 12px; margin: 12px 0 0; }
   dt { color: var(--text-muted); }
   dd { margin: 0; }
   .muted { color: var(--text-muted); }
