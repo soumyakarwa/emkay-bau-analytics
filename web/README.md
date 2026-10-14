@@ -75,7 +75,7 @@ npm run show-emkay -- --brand im --history
 | `src/lib/dataset/store.ts`, `src/lib/server/folder-store.ts` | Where uploads are kept: a local folder now, Vercel Blob later. |
 | `src/lib/calendar/` | The calendar: month grid, colours, and the post details panel. |
 | `src/routes/` | The calendar page. |
-| `src/app.css` | Colours and fonts in one place: swap them for Emkay's brand. |
+| `src/app.css` | Emkay brand colours and Open Sans, from the Emkay guidebook. |
 
 - Pillar and comms task come from the post's peg and the Framework sheet, never from the grey
   cells. The grey cells are only checked, so a typed-over cell is reported.

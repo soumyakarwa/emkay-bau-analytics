@@ -33,7 +33,7 @@
     <div class="panel">
       <header>
         <p class="eyebrow">
-          <span class="swatch" style="background: var(--{post.colour})"></span>
+          <span class="swatch" style="background: var(--mark-{post.colour})"></span>
           {brandName(post.brand)} · {longDate(post.date)}
         </p>
         <h2 id="post-title">{post.title ?? 'No title yet'}</h2>
@@ -113,6 +113,7 @@
     background: var(--surface-2);
     color: var(--text-primary);
     box-shadow: -8px 0 32px rgb(0 0 0 / 0.18);
+    border-top: 4px solid var(--growth-orange);
   }
   dialog::backdrop { background: rgb(0 0 0 / 0.35); }
   .panel { padding: 20px 20px 32px; }
@@ -140,7 +141,7 @@
     background: color-mix(in srgb, var(--warning) 14%, var(--surface-2));
     border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent);
   }
-  .problems h3 { margin: 0 0 6px; color: var(--warning-ink); text-transform: none; letter-spacing: 0; font-size: 14px; }
+  .problems h3 { margin: 0 0 6px; color: var(--text-primary); text-transform: none; letter-spacing: 0; font-size: 14px; }
   .problems li { padding: 4px 0; }
   .who { display: block; color: var(--text-muted); font-size: 12px; }
   .source { margin-top: 20px; font-size: 12px; color: var(--text-muted); }

@@ -46,8 +46,8 @@ describe('All of Emkay', () => {
   it('shows every brand, coloured by brand', () => {
     const v = calendarView(ds, 'all', '2026-08');
     expect(new Set(v.posts.map((p) => p.brand))).toEqual(new Set(['im', 'wealth']));
-    expect(v.legend.map((l) => [l.key, l.colour])).toEqual([['im', 'series-2'], ['wealth', 'series-3']]);
-    expect(v.posts.every((p) => p.colour === (p.brand === 'im' ? 'series-2' : 'series-3'))).toBe(true);
+    expect(v.legend.map((l) => [l.key, l.colour])).toEqual([['im', 'im'], ['wealth', 'wealth']]);
+    expect(v.posts.every((p) => p.colour === p.brand)).toBe(true);
   });
 
   it('hides Dropped posts unless asked', () => {
@@ -63,13 +63,13 @@ describe('All of Emkay', () => {
 });
 
 describe('one brand', () => {
-  it("shows only that brand, coloured by its own comms tasks; non-BAU tasks are neutral", () => {
+  it("shows only that brand, coloured by its own comms tasks in the guidebook's chart order; non-BAU tasks are neutral", () => {
     const v = calendarView(ds, 'im', '2026-08');
     expect(v.posts.every((p) => p.brand === 'im')).toBe(true);
     expect(v.legend.map((l) => [l.key, l.colour])).toEqual([
-      ['TL', 'series-1'], ['ML', 'series-2'], ['BB', 'series-3'], ['CO', 'neutral']
+      ['TL', 'im'], ['ML', 'orange'], ['BB', 'grey'], ['CO', 'not-bau']
     ]);
-    expect(v.posts.find((p) => p.title === 'Do not share your OTP')!.colour).toBe('neutral');
+    expect(v.posts.find((p) => p.title === 'Do not share your OTP')!.colour).toBe('not-bau');
     expect(v.posts.find((p) => p.title === 'Three myths')!.label).toBe('TL · Myths vs reality');
   });
 

@@ -33,12 +33,17 @@ export function monthGrid(month: string): (string | null)[][] {
 }
 
 /**
- * Categorical colour slots, in fixed order (see app.css). Brands take slots 1–3 (the three that
- * stay distinct for colour-blind readers); a brand's BAU comms tasks take slots in sheet order;
- * tasks that do not count as BAU (Compliance) are neutral grey.
+ * Colours follow the Emkay guidebook and were checked as sets for being told apart (including
+ * with colour blindness) with the data-viz palette validator:
+ * - All of Emkay: each brand's colour. Global uses Growth Orange because Trust Teal and Wealth
+ *   Indigo are too alike side by side.
+ * - One brand: its BAU comms tasks in sheet order take the guidebook's chart order, with the
+ *   division colour first: division colour, Growth Orange, grey, amber. Amber is fourth because
+ *   it is too close to orange to sit next to it. Tasks that are not BAU (Compliance) are neutral.
+ * The names are CSS custom properties defined in app.css as --mark-<name>.
  */
-export const SLOTS = 8;
-export const NEUTRAL = 'neutral';
+export const NEUTRAL = 'not-bau';
+const TASK_ORDER = ['brand', 'orange', 'grey', 'amber'] as const;
 
 export interface LegendEntry {
   key: string;
@@ -47,7 +52,7 @@ export interface LegendEntry {
 }
 
 export function brandColour(brand: BrandId): string {
-  return `series-${BRANDS.findIndex((b) => b.id === brand) + 1}`;
+  return brand;
 }
 
 /** Colour per comms task code for one brand-year: BAU tasks in order, others neutral. */
@@ -55,7 +60,8 @@ export function taskColours(year: BrandYear): Map<string, string> {
   const map = new Map<string, string>();
   let slot = 0;
   for (const t of year.commsTasks) {
-    map.set(t.code, t.countsAsBau && slot < SLOTS ? `series-${++slot}` : NEUTRAL);
+    const c = t.countsAsBau ? TASK_ORDER[slot++] : undefined;
+    map.set(t.code, !c ? NEUTRAL : c === 'brand' ? year.brand : c);
   }
   return map;
 }

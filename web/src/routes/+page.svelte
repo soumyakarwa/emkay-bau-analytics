@@ -1,11 +1,15 @@
 <script lang="ts">
   import PostDetails from '$lib/calendar/PostDetails.svelte';
-  import { shiftMonth, type CalendarPost } from '$lib/calendar/calendar';
+  import { NEUTRAL, shiftMonth, type CalendarPost } from '$lib/calendar/calendar';
 
   let { data } = $props();
   let selected: CalendarPost | null = $state(null);
 
   const cal = $derived(data.cal);
+  /** The guidebook's one substitution: Trust Teal for the group, the division colour for IM and Wealth. */
+  const band = $derived(
+    cal.view === 'im' ? 'var(--investment-pine)' : cal.view === 'wealth' ? 'var(--wealth-indigo)' : 'var(--trust-teal)'
+  );
   const monthName = $derived(
     new Date(`${cal.month}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
   );
@@ -52,7 +56,7 @@
 
 {#snippet chip(p: CalendarPost)}
   {@const st = stage(p)}
-  <button class="chip" class:dropped={st === STAGE.dropped} style="--c: var(--{p.colour})" onclick={() => (selected = p)}>
+  <button class="chip" class:dropped={st === STAGE.dropped} class:not-bau={p.colour === NEUTRAL} style="--c: var(--mark-{p.colour})" onclick={() => (selected = p)}>
     <span class="chip-title" class:untitled={!p.title}>
       <span class="stage {st.key}" title={p.status ?? st.label}></span><span class="visually-hidden">{p.status ?? st.label}: </span>
       {p.title ?? 'No title yet'}
@@ -73,8 +77,8 @@
   </button>
 {/snippet}
 
-<div class="page">
-  <header class="top">
+<header class="band" style="--band: {band}">
+  <div class="band-inner">
     <h1>Emkay BAU calendar</h1>
     <nav class="brands" aria-label="Brand">
       <a href={href({ brand: 'all' })} aria-current={cal.view === 'all' ? 'page' : undefined}>All of Emkay</a>
@@ -82,7 +86,10 @@
         <a href={href({ brand: b.id })} aria-current={cal.view === b.id ? 'page' : undefined} title={b.name}>{b.short}</a>
       {/each}
     </nav>
-  </header>
+  </div>
+</header>
+
+<div class="page" style="--band: {band}">
 
   {#if !data.published}
     <section class="empty">
@@ -100,7 +107,7 @@
       </div>
       <ul class="legend" aria-label="Colours">
         {#each cal.legend as l}
-          <li><span class="swatch" style="background: var(--{l.colour})"></span>{l.label}</li>
+          <li><span class="swatch" class:not-bau={l.colour === NEUTRAL} style="background: var(--mark-{l.colour})"></span>{l.label}</li>
         {/each}
       </ul>
     </div>
@@ -154,17 +161,21 @@
 <PostDetails post={selected} onclose={() => (selected = null)} />
 
 <style>
+  .band { background: var(--band); color: #fff; }
+  .band-inner {
+    max-width: 1400px; margin: 0 auto; padding: 14px 16px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  h1 { margin: 0; font-size: 20px; letter-spacing: 0.01em; }
+  .brands { display: flex; gap: 4px; }
+  .brands a { padding: 6px 14px; border-radius: 999px; color: #fff; text-decoration: none; font-weight: 600; opacity: 0.85; }
+  .brands a:hover { opacity: 1; background: rgb(255 255 255 / 0.12); }
+  .brands a[aria-current='page'] { background: var(--growth-orange); color: var(--text-primary); opacity: 1; }
   .page { max-width: 1400px; margin: 0 auto; padding: 16px; }
-  .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-  h1 { margin: 0; font-size: 20px; }
-  .brands { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
-  .brands a { padding: 6px 12px; border-radius: 7px; color: var(--text-secondary); text-decoration: none; font-weight: 500; }
-  .brands a:hover { background: var(--weekend); }
-  .brands a[aria-current='page'] { background: var(--text-primary); color: var(--surface-1); }
 
   .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; margin-bottom: 8px; }
   .month-nav { display: flex; align-items: center; gap: 8px; }
-  .month-nav h2 { margin: 0; font-size: 18px; min-width: 150px; text-align: center; }
+  .month-nav h2 { margin: 0; font-size: 18px; min-width: 150px; text-align: center; color: var(--band, var(--trust-teal)); }
   .icon {
     display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
     border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary);
@@ -184,7 +195,7 @@
   .day.blank { background: var(--surface-1); }
   .num { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
   .today .num {
-    background: var(--today); color: #fff; border-radius: 999px; width: 22px; height: 22px;
+    background: var(--growth-orange); color: var(--text-primary); border-radius: 999px; width: 22px; height: 22px;
     display: grid; place-items: center;
   }
   .moment { font-size: 11px; color: var(--text-secondary); font-style: italic; overflow-wrap: anywhere; }
@@ -195,6 +206,8 @@
     background: var(--surface-1); box-shadow: inset 4px 0 0 var(--c);
   }
   .chip:hover { border-color: var(--c); }
+  .chip.not-bau { box-shadow: none; border-left: 4px dashed var(--c); padding-left: 6px; }
+  .swatch.not-bau { outline: 1px dashed var(--text-muted); outline-offset: -1px; }
   .chip.dropped .chip-title { text-decoration: line-through; color: var(--text-muted); }
   .chip-title { font-size: 12px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
   .stage {
@@ -214,13 +227,13 @@
   .pf.live { background: var(--text-secondary); border-color: var(--text-secondary); color: var(--surface-1); }
   .warn {
     display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%;
-    background: var(--warning); color: #3d2a00; font-size: 11px; font-weight: 700;
+    background: var(--warning); color: var(--text-primary); font-size: 11px; font-weight: 700;
   }
 
   .agenda { display: none; list-style: none; margin: 0; padding: 0; }
   .agenda li { padding: 10px 0; border-bottom: 1px solid var(--border); display: grid; gap: 6px; }
   .agenda h3 { margin: 0; font-size: 13px; color: var(--text-secondary); }
-  .agenda li.today h3 { color: var(--today); }
+  .agenda li.today h3 { color: var(--text-primary); text-decoration: underline 2px var(--growth-orange); text-underline-offset: 4px; }
 
   .empty { max-width: 640px; margin: 48px auto; padding: 24px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); }
   .empty h2 { margin-top: 0; }
