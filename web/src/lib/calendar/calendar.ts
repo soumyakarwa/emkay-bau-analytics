@@ -2,9 +2,42 @@
 
 import { BRANDS, type BrandId } from '../brands';
 import type { BrandYear, Dataset, DatasetMoment, DatasetPost } from '../dataset/dataset';
-import { DROPPED, normalise } from '../workbook/contract';
+import { DROPPED, PLATFORMS, normalise, type Platform } from '../workbook/contract';
 
 export type View = 'all' | BrandId;
+
+/** Where a post is, grouping the workbook's statuses. */
+export type Stage = 'published' | 'in-progress' | 'planned' | 'dropped';
+export const STAGES: { id: Exclude<Stage, 'dropped'>; label: string }[] = [
+  { id: 'published', label: 'Published' },
+  { id: 'in-progress', label: 'In progress' },
+  { id: 'planned', label: 'Planned' }
+];
+
+export function stageOf(status: string | null): Stage {
+  const s = normalise(status ?? '');
+  if (s === 'published') return 'published';
+  if (s === normalise(DROPPED)) return 'dropped';
+  if (s.includes('progress') || s.startsWith('ready')) return 'in-progress';
+  return 'planned'; // Idea, Planned, or no status yet
+}
+
+export function isStage(s: string | null): s is Exclude<Stage, 'dropped'> {
+  return STAGES.some((x) => x.id === s);
+}
+
+export function platformById(id: string | null): Platform | undefined {
+  return PLATFORMS.find((p) => p.toLowerCase() === id?.toLowerCase());
+}
+
+export interface Filters {
+  /** Only posts at this stage. */
+  stage?: Exclude<Stage, 'dropped'>;
+  /** Only posts going out on this platform (planned or live). */
+  platform?: Platform;
+  /** Include Dropped posts. */
+  showDropped?: boolean;
+}
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -80,11 +113,15 @@ export interface CalendarView {
   legend: LegendEntry[];
   /** Dropped posts this month that are hidden. */
   hiddenDropped: number;
+  /** Posts this month (brand view, not Dropped) at each stage and on each platform, before those filters. */
+  stageCounts: Record<Exclude<Stage, 'dropped'>, number>;
+  platformCounts: Record<Platform, number>;
 }
 
 const isDropped = (p: DatasetPost) => !!p.status && normalise(p.status) === normalise(DROPPED);
 
-export function calendarView(ds: Dataset, view: View, month: string, showDropped = false): CalendarView {
+export function calendarView(ds: Dataset, view: View, month: string, filters: Filters = {}): CalendarView {
+  const { stage, platform, showDropped = false } = filters;
   const inView = (p: { brand: BrandId; date: string }) => (view === 'all' || p.brand === view) && p.date.startsWith(month);
   const all = ds.posts.filter(inView);
   const yearOf = (p: DatasetPost) => ds.brandYears.find((y) => y.brand === p.brand && y.fy === p.fy);
@@ -110,8 +147,18 @@ export function calendarView(ds: Dataset, view: View, month: string, showDropped
   }
 
   const brandShort = (id: BrandId) => BRANDS.find((b) => b.id === id)!.short;
+  const live = all.filter((p) => !isDropped(p));
+  const onPlatform = (p: DatasetPost, pl: Platform) => p.platforms.some((x) => x.platform === pl);
+  const stageCounts = Object.fromEntries(
+    STAGES.map((s) => [s.id, live.filter((p) => stageOf(p.status) === s.id && (!platform || onPlatform(p, platform))).length])
+  ) as CalendarView['stageCounts'];
+  const platformCounts = Object.fromEntries(
+    PLATFORMS.map((pl) => [pl, live.filter((p) => onPlatform(p, pl) && (!stage || stageOf(p.status) === stage)).length])
+  ) as CalendarView['platformCounts'];
   const posts = all
-    .filter((p) => showDropped || !isDropped(p))
+    .filter((p) => (showDropped && !stage) || !isDropped(p))
+    .filter((p) => !stage || stageOf(p.status) === stage)
+    .filter((p) => !platform || onPlatform(p, platform))
     .map((p) => ({
       ...p,
       colour: colourOf(p),
@@ -125,6 +172,8 @@ export function calendarView(ds: Dataset, view: View, month: string, showDropped
     posts,
     moments: ds.moments.filter(inView),
     legend,
-    hiddenDropped: showDropped ? 0 : all.filter(isDropped).length
+    hiddenDropped: showDropped || stage ? 0 : all.filter((p) => isDropped(p) && (!platform || onPlatform(p, platform))).length,
+    stageCounts,
+    platformCounts
   };
 }

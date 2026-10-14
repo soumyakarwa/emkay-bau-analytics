@@ -1,6 +1,8 @@
 <script lang="ts">
+  import PlatformIcon from '$lib/calendar/PlatformIcon.svelte';
   import PostDetails from '$lib/calendar/PostDetails.svelte';
-  import { NEUTRAL, shiftMonth, type CalendarPost } from '$lib/calendar/calendar';
+  import { NEUTRAL, STAGES, shiftMonth, stageOf, type CalendarPost } from '$lib/calendar/calendar';
+  import { PLATFORMS } from '$lib/workbook/contract';
 
   let { data } = $props();
   let selected: CalendarPost | null = $state(null);
@@ -19,31 +21,24 @@
     [...new Set([...cal.posts.map((p) => p.date), ...cal.moments.map((m) => m.date)])].sort()
   );
 
-  function href(changes: { brand?: string; month?: string; dropped?: boolean }) {
+  type Changes = { brand?: string; month?: string; dropped?: boolean; stage?: string | null; platform?: string | null };
+  function href(changes: Changes) {
     const brand = changes.brand ?? cal.view;
     const month = changes.month ?? cal.month;
     const dropped = changes.dropped ?? data.showDropped;
+    const stage = changes.stage === undefined ? data.stage : changes.stage;
+    const platform = changes.platform === undefined ? data.platform : changes.platform;
     const q = new URLSearchParams();
     if (brand !== 'all') q.set('brand', brand);
     q.set('month', month);
+    if (stage) q.set('stage', stage);
+    if (platform) q.set('platform', platform.toLowerCase());
     if (dropped) q.set('dropped', '1');
     return `?${q}`;
   }
 
-  const PLATFORM_ABBR: Record<string, string> = { LinkedIn: 'in', Instagram: 'IG', YouTube: 'YT', X: 'X', WhatsApp: 'WA' };
-  const STAGE: Record<string, { key: string; label: string }> = {
-    published: { key: 'published', label: 'Published' },
-    working: { key: 'working', label: 'In progress' },
-    planned: { key: 'planned', label: 'Planned' },
-    dropped: { key: 'dropped', label: 'Dropped' }
-  };
-  function stage(p: CalendarPost) {
-    const s = (p.status ?? '').toLowerCase();
-    if (s === 'published') return STAGE.published;
-    if (s === 'dropped') return STAGE.dropped;
-    if (s.includes('progress') || s.startsWith('ready')) return STAGE.working;
-    return STAGE.planned;
-  }
+  const STAGE_LABEL = { published: 'Published', 'in-progress': 'In progress', planned: 'Planned', dropped: 'Dropped' } as const;
+  const filtered = $derived(!!(data.stage || data.platform));
   const dayNumber = (iso: string) => Number(iso.slice(8));
   const weekday = (iso: string) =>
     new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -55,19 +50,18 @@
 </svelte:head>
 
 {#snippet chip(p: CalendarPost)}
-  {@const st = stage(p)}
-  <button class="chip" class:dropped={st === STAGE.dropped} class:not-bau={p.colour === NEUTRAL} style="--c: var(--mark-{p.colour})" onclick={() => (selected = p)}>
+  {@const st = stageOf(p.status)}
+  <button class="chip" class:dropped={st === 'dropped'} class:not-bau={p.colour === NEUTRAL} style="--c: var(--mark-{p.colour})" onclick={() => (selected = p)}>
     <span class="chip-title" class:untitled={!p.title}>
-      <span class="stage {st.key}" title={p.status ?? st.label}></span><span class="visually-hidden">{p.status ?? st.label}: </span>
+      <span class="stage {st}" title={p.status ?? STAGE_LABEL[st]}></span><span class="visually-hidden">{p.status ?? STAGE_LABEL[st]}: </span>
       {p.title ?? 'No title yet'}
     </span>
     <span class="chip-label">{p.label}</span>
     {#if p.platforms.length || p.problems.length}
       <span class="chip-foot">
         {#each p.platforms as pl}
-          <span class="pf" class:live={pl.state !== 'planned'} title="{pl.platform}: {pl.state === 'planned' ? 'planned' : pl.state === 'sent' ? 'sent' : 'live'}"
-            >{PLATFORM_ABBR[pl.platform]}</span
-          >
+          <PlatformIcon platform={pl.platform} live={pl.state !== 'planned'} size={20}
+            label="{pl.platform}: {pl.state === 'planned' ? 'planned' : pl.state === 'sent' ? 'sent' : 'live'}" />
         {/each}
         {#if p.problems.length}
           <span class="warn" title="{p.problems.length} to fix in the workbook">!<span class="visually-hidden"> {p.problems.length} problems to fix</span></span>
@@ -112,13 +106,35 @@
       </ul>
     </div>
 
+    <div class="filters" aria-label="Filters">
+      <nav class="seg" aria-label="Stage">
+        <a href={href({ stage: null })} aria-current={!data.stage ? 'true' : undefined}>All stages</a>
+        {#each STAGES as s}
+          <a href={href({ stage: s.id })} aria-current={data.stage === s.id ? 'true' : undefined}>
+            <span class="stage {s.id}"></span>{s.label} <span class="count">{cal.stageCounts[s.id]}</span>
+          </a>
+        {/each}
+      </nav>
+      <nav class="seg" aria-label="Platform">
+        <a href={href({ platform: null })} aria-current={!data.platform ? 'true' : undefined}>All platforms</a>
+        {#each PLATFORMS as pl}
+          <a href={href({ platform: pl })} aria-current={data.platform === pl ? 'true' : undefined} aria-label="{pl}, {cal.platformCounts[pl]} posts" title={pl}>
+            <PlatformIcon platform={pl} live={data.platform === pl} size={20} label={pl} />
+            <span class="count">{cal.platformCounts[pl]}</span>
+          </a>
+        {/each}
+      </nav>
+      {#if filtered}<a class="clear" href={href({ stage: null, platform: null })}>Clear filters</a>{/if}
+    </div>
+
     <p class="key">
-      <span><span class="stage published"></span> published</span><span><span class="stage working"></span> in progress</span><span><span class="stage planned"></span> planned</span>
-      <span><span class="pf live">in</span> live <span class="pf">in</span> planned</span>
+      <span><span class="stage published"></span> published</span><span><span class="stage in-progress"></span> in progress</span><span><span class="stage planned"></span> planned</span>
+      <span class="key-icons"><PlatformIcon platform="LinkedIn" live size={16} label="Filled: live" /> live
+        <PlatformIcon platform="LinkedIn" size={16} label="Outlined: planned" /> planned</span>
       <span><span class="warn">!</span> to fix in the workbook</span>
       {#if cal.hiddenDropped}
         <a href={href({ dropped: true })}>Show {cal.hiddenDropped} dropped</a>
-      {:else if data.showDropped}
+      {:else if data.showDropped && !data.stage}
         <a href={href({ dropped: false })}>Hide dropped</a>
       {/if}
     </p>
@@ -152,7 +168,7 @@
           {#each postsOn(day) as p (p.key)}{@render chip(p)}{/each}
         </li>
       {:else}
-        <li class="muted">No posts this month.</li>
+        <li class="muted">{filtered ? 'No posts match these filters this month.' : 'No posts this month.'}</li>
       {/each}
     </ol>
   {/if}
@@ -215,16 +231,27 @@
     border: 1.5px solid var(--c, var(--text-muted));
   }
   .stage.published { background: var(--c, var(--text-muted)); }
-  .stage.working { background: linear-gradient(90deg, var(--c, var(--text-muted)) 50%, transparent 50%); }
+  .stage.in-progress { background: linear-gradient(90deg, var(--c, var(--text-muted)) 50%, transparent 50%); }
   .stage.dropped { border-style: dashed; }
   .chip-title.untitled { font-style: italic; font-weight: 500; color: var(--text-muted); }
   .chip-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .chip-foot { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-top: 2px; }
-  .pf {
-    font-size: 10px; line-height: 16px; padding: 0 4px; border-radius: 4px;
-    border: 1px solid var(--border); color: var(--text-muted);
+  .chip-foot { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 3px; }
+  .key-icons { display: inline-flex; align-items: center; gap: 4px; }
+
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 10px; }
+  .seg { display: flex; flex-wrap: wrap; max-width: 100%; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+  .seg a {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+    color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 600;
   }
-  .pf.live { background: var(--text-secondary); border-color: var(--text-secondary); color: var(--surface-1); }
+  .seg a:hover { background: var(--weekend); }
+  .seg a[aria-current='true'] { background: var(--band, var(--trust-teal)); color: #fff; }
+  .seg a[aria-current='true'] .count { color: #fff; opacity: 0.85; }
+  .seg a[aria-current='true'] .stage { border-color: #fff; }
+  .seg a[aria-current='true'] .stage.published { background: #fff; }
+  .seg a[aria-current='true'] .stage.in-progress { background: linear-gradient(90deg, #fff 50%, transparent 50%); }
+  .count { font-weight: 400; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .clear { font-size: 13px; font-weight: 600; }
   .warn {
     display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%;
     background: var(--warning); color: var(--text-primary); font-size: 11px; font-weight: 700;
@@ -241,6 +268,9 @@
   .muted { color: var(--text-muted); }
 
   @media (max-width: 760px) {
+    .filters { flex-direction: column; align-items: stretch; }
+    .seg { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: 100%; max-width: 100%; min-width: 0; }
+    .seg a { flex: none; }
     .grid { display: none; }
     .agenda { display: block; }
     .month-nav h2 { min-width: 0; }

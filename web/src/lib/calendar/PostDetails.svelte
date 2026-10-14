@@ -1,6 +1,7 @@
 <script lang="ts">
   import { BRANDS } from '$lib/brands';
   import type { CalendarPost } from './calendar';
+  import PlatformIcon from './PlatformIcon.svelte';
 
   let { post, onclose }: { post: CalendarPost | null; onclose: () => void } = $props();
   let dialog: HTMLDialogElement | undefined = $state();
@@ -78,7 +79,7 @@
         <ul class="platforms">
           {#each post.platforms as pl}
             <li>
-              <span class="pf-name">{pl.platform}</span>
+              <span class="pf-name"><PlatformIcon platform={pl.platform} live={pl.state !== 'planned'} size={20} label={pl.platform} />{pl.platform}</span>
               {#if pl.url}<a href={pl.url} target="_blank" rel="noopener noreferrer">{host(pl.url)}</a>
               {:else}<span class="muted">{pl.state === 'sent' ? 'Sent' : 'Planned'}</span>{/if}
             </li>
@@ -134,7 +135,8 @@
   .muted { color: var(--text-muted); }
   ul { list-style: none; margin: 0; padding: 0; }
   .platforms li, .links li { padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px; }
-  .pf-name { width: 84px; color: var(--text-muted); flex: none; }
+  .pf-name { width: 120px; color: var(--text-secondary); flex: none; display: inline-flex; align-items: center; gap: 8px; }
+  .platforms li { align-items: center; }
   .links li a { font-weight: 500; }
   .problems {
     margin: 4px 0 12px; padding: 10px 12px; border-radius: var(--radius);

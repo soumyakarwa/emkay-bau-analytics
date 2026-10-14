@@ -1,7 +1,7 @@
 // The calendar view: month grid, what each view shows, and its colours.
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { calendarView, isMonth, monthGrid, shiftMonth } from '../src/lib/calendar/calendar';
+import { calendarView, isMonth, monthGrid, shiftMonth, stageOf } from '../src/lib/calendar/calendar';
 import { loadDataset, type Dataset } from '../src/lib/dataset/dataset';
 import { memoryStore } from '../src/lib/dataset/store';
 import { publish } from '../src/lib/dataset/uploads';
@@ -52,7 +52,7 @@ describe('All of Emkay', () => {
 
   it('hides Dropped posts unless asked', () => {
     expect(calendarView(ds, 'all', '2026-08').hiddenDropped).toBe(2);
-    const shown = calendarView(ds, 'all', '2026-08', true);
+    const shown = calendarView(ds, 'all', '2026-08', { showDropped: true });
     expect(shown.hiddenDropped).toBe(0);
     expect(shown.posts.filter((p) => p.status === 'Dropped')).toHaveLength(2);
   });
@@ -79,5 +79,34 @@ describe('one brand', () => {
     expect(post.problems).toHaveLength(1);
     expect(post.problems[0].message).toContain('typed over');
     expect(v.posts.filter((p) => p.problems.length)).toHaveLength(1);
+  });
+});
+
+describe('filters', () => {
+  it('groups statuses into stages', () => {
+    expect(['Published', 'Copy in progress', 'Design in progress', 'Ready to publish', 'Idea', 'Planned', null, 'Dropped'].map(stageOf))
+      .toEqual(['published', 'in-progress', 'in-progress', 'in-progress', 'planned', 'planned', 'planned', 'dropped']);
+  });
+
+  it('shows only posts at one stage, and counts each stage', () => {
+    const all = calendarView(ds, 'im', '2026-08');
+    expect(all.stageCounts).toEqual({ published: 4, 'in-progress': 0, planned: 0 });
+    const published = calendarView(ds, 'im', '2026-08', { stage: 'published' });
+    expect(published.posts).toHaveLength(4);
+    expect(published.posts.every((p) => p.status === 'Published')).toBe(true);
+    expect(calendarView(ds, 'im', '2026-08', { stage: 'planned' }).posts).toEqual([]);
+  });
+
+  it('shows only posts going out on one platform, and counts each platform', () => {
+    const v = calendarView(ds, 'im', '2026-08', { platform: 'YouTube' });
+    expect(v.posts.map((p) => p.title)).toEqual(['Second post on the same day']);
+    expect(v.platformCounts).toMatchObject({ LinkedIn: 3, Instagram: 1, YouTube: 1, X: 1, WhatsApp: 1 });
+  });
+
+  it('combines stage and platform, and counts each within the other', () => {
+    const v = calendarView(ds, 'all', '2026-11', { stage: 'planned', platform: 'LinkedIn' });
+    expect(v.posts.map((p) => [p.brand, p.title])).toEqual([['im', 'Planned post'], ['wealth', 'Planned post']]);
+    expect(v.stageCounts.planned).toBe(2);
+    expect(v.platformCounts.Instagram).toBe(0);
   });
 });
