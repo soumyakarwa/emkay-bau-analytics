@@ -5,7 +5,7 @@
 import { BRANDS, type BrandId } from '../brands';
 import { DROPPED, PLATFORMS, normalise, type Platform } from '../workbook/contract';
 import { summarise, type Summary } from '../workbook/summary';
-import type { CommsTask, Moment, Peg, Post } from '../workbook/types';
+import type { CommsTask, Issue, Moment, Peg, Post } from '../workbook/types';
 import type { Store } from './store';
 import { latestUploads, type Upload } from './uploads';
 
@@ -27,6 +27,8 @@ export interface DatasetPost extends Post {
   fy: number;
   /** Unique across the dataset: "<brand>:<fy>:<sheet>!<row>". */
   key: string;
+  /** Problems found in this post's row when it was uploaded. */
+  problems: Issue[];
 }
 
 export interface DatasetMoment extends Moment {
@@ -60,7 +62,16 @@ export function buildDataset(uploads: Upload[]): Dataset {
     summary: summarise(u.workbook)
   }));
   const posts = sorted
-    .flatMap((u) => u.workbook.posts.map((p) => ({ ...p, brand: u.brand, fy: u.fy, key: `${u.brand}:${u.fy}:${p.id}` })))
+    .flatMap((u) => {
+      const byRow = new Map<string, Issue[]>();
+      for (const i of u.issues) {
+        const row = i.sheet && i.cell ? /\d+$/.exec(i.cell)?.[0] : undefined;
+        if (row) byRow.set(`${i.sheet}!${row}`, [...(byRow.get(`${i.sheet}!${row}`) ?? []), i]);
+      }
+      return u.workbook.posts.map((p) => ({
+        ...p, brand: u.brand, fy: u.fy, key: `${u.brand}:${u.fy}:${p.id}`, problems: byRow.get(p.id) ?? []
+      }));
+    })
     .sort((a, b) => a.date.localeCompare(b.date) || order(a.brand) - order(b.brand));
   const moments = sorted
     .flatMap((u) => u.workbook.moments.map((m) => ({ ...m, brand: u.brand, fy: u.fy })))

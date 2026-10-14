@@ -1,7 +1,7 @@
 # Website
 
-The Emkay BAU microsite (SvelteKit, TypeScript). It has no pages yet. So far it can read and
-check a brand's calendar workbook, keep every upload, and combine the brands into All of Emkay.
+The Emkay BAU microsite (SvelteKit, TypeScript). It reads and checks each brand's calendar
+workbook, keeps every upload, combines the brands into All of Emkay, and shows them on a calendar.
 
 ## Set up (once)
 
@@ -11,6 +11,21 @@ From the repository root:
 cd web
 npm install
 ```
+
+## See the calendar
+
+Publish the workbooks first (below), then:
+
+```bash
+npm run dev
+```
+
+and open http://localhost:5173. It opens on All of Emkay for the current month, coloured by
+brand; pick a brand to see only its posts, coloured by its own comms tasks. Click a post for its
+details, links and any problems to fix. On a phone the month shows as a list of days. The brand
+and month are in the address (e.g. `/?brand=wealth&month=2026-10`), so a view can be shared.
+
+The site reads the data folder `web/.data`; set `BAU_DATA_DIR` to read another one.
 
 ## Check a workbook
 
@@ -58,6 +73,9 @@ npm run show-emkay -- --brand im --history
 | `src/lib/dataset/changes.ts` | Framework changes between two uploads. |
 | `src/lib/dataset/dataset.ts` | All of Emkay: the latest upload of every brand and year, combined. |
 | `src/lib/dataset/store.ts`, `src/lib/server/folder-store.ts` | Where uploads are kept: a local folder now, Vercel Blob later. |
+| `src/lib/calendar/` | The calendar: month grid, colours, and the post details panel. |
+| `src/routes/` | The calendar page. |
+| `src/app.css` | Colours and fonts in one place: swap them for Emkay's brand. |
 
 - Pillar and comms task come from the post's peg and the Framework sheet, never from the grey
   cells. The grey cells are only checked, so a typed-over cell is reported.
