@@ -1,14 +1,8 @@
 // Formatting shared by the upload page's sections.
 
-import type { LinkedInFile } from '$lib/analytics/rows';
 import { brandById } from '$lib/brands';
 
-export const KIND_LABEL: Record<LinkedInFile, string> = {
-  content: 'LinkedIn content (posts)',
-  followers: 'LinkedIn followers',
-  visitors: 'LinkedIn visitors',
-  competitors: 'LinkedIn competitors'
-};
+export { exportLabel } from '$lib/analytics/catalog';
 
 export const brandName = (id: string) => brandById(id)?.name ?? id;
 

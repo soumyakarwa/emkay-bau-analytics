@@ -2,7 +2,7 @@
 
 The Emkay BAU microsite (SvelteKit, TypeScript). It reads and checks each brand's calendar
 workbook, keeps every upload, combines the brands into All of Emkay, and shows them on a calendar.
-LinkedIn's analytics exports are laid over the BAU framework on the Analytics page.
+Analytics exports from LinkedIn, YouTube, Instagram and X are kept and cleaned into tables; LinkedIn's are laid over the BAU framework on the Analytics page.
 
 ## Set up (once)
 
@@ -43,56 +43,72 @@ upload history below lists every upload; "Live" is the one the calendar shows.
 The header has the pages on the left and, on the right, which part of Emkay you are viewing;
 the brand stays selected when you move between pages.
 
-## LinkedIn analytics
+## Analytics
 
 ### Monthly routine
 
-Once a month, per brand: on LinkedIn, open the page's admin view → **Analytics**, and on each
-of the **Content**, **Followers** and **Visitors** tabs click **Export** for the last 365 days.
-If the page tracks competitors, also export **Competitors** (optional; only Emkay Global so far).
-On the Upload page, under **LinkedIn analytics**, choose (or drop) all of the month's files at
-once, exactly as LinkedIn gives them (.xls, or .xlsx for competitors). Each file is checked on
-its own; **Publish all ready files** publishes those that passed and skips the rest, listing
-why (another brand's page, already uploaded, chosen twice, not a LinkedIn export). A file put in
-the wrong section is pointed to the right one. The section also shows which of the brand's
-files are in, how recent they are, and any gaps.
+Once a month, per brand, export from each platform the brand uses and upload everything at once
+on the Upload page, under **Analytics**, exactly as the platforms give the files (no opening in
+Excel, no renaming, no unzipping). The site recognises each file by its contents.
+
+| Platform | Export | Period |
+| --- | --- | --- |
+| LinkedIn | Page admin view → Analytics → **Content**, **Followers**, **Visitors** (and **Competitors**, if set up) → Export (.xls / .xlsx) | The last 365 days |
+| YouTube | Studio → Analytics → **Advanced mode** → **Content** (with Likes, Comments added, Shares, Average percentage viewed and Subscribers gained/lost added as columns), **Traffic source** (and Geography, Content type) → Export → CSV (.zip each) | **The previous calendar month** |
+| Instagram | Meta Business Suite → Insights → **Content** → Export (.csv, one row per post); the overview and posts summaries are optional | The last 365 days |
+| X | Analytics → **Content** and **Overview** → Export (.csv) | The last 365 days |
+
+Why YouTube differs: LinkedIn, Instagram and X give each post's lifetime figures, so a newer
+export simply updates them. YouTube gives only what happened in the chosen period, so the site
+adds up whole calendar months; YouTube keeps full history, so a missed month can be exported later.
+
+Each file is checked on its own; **Publish all ready files** publishes those that passed and
+skips the rest, saying why (another brand's account, already uploaded, chosen twice, not an
+export the site reads). The section also shows, per platform, which files are in, any gaps, and
+what is due this month. A file put in the wrong section is pointed to the right one.
 
 From the terminal (same checks as the Upload page):
 
 ```bash
 npm run publish-analytics -- --for im emkayinvestmentmanagers_content_1791966587478.xls …
-npm run show-analytics -- --brand im              # what each table holds
-npm run show-analytics -- --brand im --post 7400000000000000002  # one post's figures over time
+npm run show-analytics -- --brand im                       # every platform's tables
+npm run show-analytics -- --brand global --platform youtube
+npm run show-analytics -- --brand im --post 7400000000000000002   # one post's figures over time
 ```
 
 ### The pipeline
 
 1. **Keep the original.** Every upload is saved once and never changed: the original file, and
-   its cleaned rows as JSON (`analytics/<brand>/linkedin/<file>/<id>.json`).
-2. **Clean it** (`src/lib/analytics/linkedin.ts`). Every column is kept. The header row is found
-   by name (some sheets have a note line above it); US-style dates (`10/12/2026` is 12 October)
-   become `2026-10-12`, with post dates left in UTC as LinkedIn gives them; numbers become
-   numbers; blanks stay blank, never 0 ("Views" only exists for videos); post IDs come from the
-   links; LinkedIn's "Total" rows are dropped (organic + sponsored, recalculable). Sponsored rows
-   are kept per campaign, as one post can be boosted several times, even by campaigns that share
-   a name.
-3. **Combine into four tables** (`src/lib/analytics/tables.ts`), rebuilt from the uploads
+   its cleaned rows as JSON (`analytics/<brand>/<platform>/<file>/<id>.json`).
+2. **Clean it**, with one reader per platform (`src/lib/analytics/linkedin.ts`, `youtube.ts`,
+   `instagram.ts`, `x.ts`). Every column is kept. Headers are found by name; every date format
+   (`10/12/2026` is 12 October, `Wed, Oct 14, 2026`, `Sep 24, 2026`, …) becomes `2026-10-12`, with
+   posting times kept where given; numbers become numbers; durations become seconds; IDs stay text
+   (a 19-digit X post ID would lose digits as a number); blanks stay blank, never 0. Post IDs come
+   from the links. LinkedIn's "Total" rows are dropped; its sponsored rows are kept per campaign.
+   A CSV re-saved in Excel is still read, with a note about what it lost.
+3. **Combine into five tables** (`src/lib/analytics/tables.ts`), rebuilt from the uploads
    whenever they are needed and never saved:
 
    | Table | From | How uploads combine |
    | --- | --- | --- |
-   | **Posts** | Content: All posts | Every snapshot kept, tagged with its export day. The pages use each post's newest figures; a post's history shows how it grew. |
-   | **Daily** | Content: Metrics; Followers; Visitors | One set of figures per day: the newest export covering that day wins, and older exports keep the days newer ones no longer reach, so history grows past LinkedIn's one year. |
-   | **Audience** | Followers and Visitors breakdowns | Every snapshot kept: followers as of the export day, visitors over the export's period. |
-   | **Benchmark** | Competitors (optional) | One set per period; a re-export of the same period replaces it. |
+   | **Posts** | LinkedIn content, YouTube content, Instagram posts, X posts | Every snapshot kept. Lifetime figures: each post's newest snapshot. YouTube: whole months added up. A post's history shows how it grew. |
+   | **Daily** | LinkedIn metrics, followers and visitors; YouTube daily totals; X overview | One value per figure per day: the newest export that has it wins; older exports keep the days newer ones no longer reach. |
+   | **Audience** | LinkedIn follower and visitor breakdowns; YouTube traffic source, geography, content type | Every snapshot kept, with its day or period. |
+   | **Benchmark** | LinkedIn competitors (optional) | One set per period; a re-export of the same period replaces it. |
+   | **Totals** | YouTube's period totals (e.g. subscribers gained and lost); Instagram summaries | One set per period. |
 
-4. **Check every upload.** Refused: not a LinkedIn export, a missing column, or a file for
-   another brand's page (`LINKEDIN_PAGES`, or the brand's own row in a competitor export).
-   Skipped: an identical re-upload. Warned: a gap since the last upload, an export older than
-   one already in, rows left out.
+   Shared measures (impressions, reach, views, clicks, likes, comments, reposts, shares, saves,
+   follows, watch time) sit beside each platform's own columns, so platforms can be compared.
+4. **Check every upload.** Refused: not an export the site reads, a missing column, or a file
+   for another brand's account (`ACCOUNTS` in `src/lib/analytics/platforms.ts`, or the brand's own
+   row in a LinkedIn competitor export). Skipped: an identical re-upload. Warned: an account the
+   site does not know yet, a gap, an export older than one already in, a YouTube export that is
+   not one calendar month, a file damaged by Excel, rows left out.
 
-When the cleaning rules change, `ANALYTICS_READER_VERSION` goes up and older uploads are cleaned
-again from their original files as they are loaded.
+Adding a platform means a reader and an entry in `src/lib/analytics/catalog.ts` and
+`platforms.ts`; storage, tables and the upload page follow. When a reader changes,
+`ANALYTICS_READER_VERSION` goes up and older uploads are cleaned again from their original files.
 
 ### The Analytics page (a first version, to be redesigned)
 
@@ -180,10 +196,12 @@ npm run show-emkay -- --brand im --history
 | `src/lib/dataset/dataset.ts` | All of Emkay: the latest upload of every brand and year, combined. |
 | `src/lib/dataset/store.ts`, `src/lib/server/folder-store.ts` | Where uploads are kept: a local folder now, Vercel Blob later. |
 | `src/lib/calendar/` | The calendar: month grid, colours, and the post details panel. |
-| `src/lib/analytics/rows.ts` | The cleaned rows every export becomes: posts, daily, audience, benchmark. |
-| `src/lib/analytics/linkedin.ts` | Reads and cleans LinkedIn's content, followers, visitors and competitors exports. |
+| `src/lib/analytics/rows.ts` | The cleaned rows every export becomes, and the measures shared across platforms. |
+| `src/lib/analytics/catalog.ts`, `platforms.ts` | The platforms: their exports, export rules, accounts per brand, and telling files apart. |
+| `src/lib/analytics/linkedin.ts`, `youtube.ts`, `instagram.ts`, `x.ts` | One reader per platform. |
+| `src/lib/analytics/csv.ts`, `common.ts` | CSV and text encodings; dates, numbers and durations in every platform's style. |
 | `src/lib/analytics/uploads.ts` | Saves each export once (original + cleaned rows), checks it, and tracks coverage. |
-| `src/lib/analytics/tables.ts` | Combines every upload into the four tables. |
+| `src/lib/analytics/tables.ts` | Combines every upload into the five tables. |
 | `src/lib/analytics/analysis.ts` | Matches posts to the calendar and builds the month-by-month medians. |
 | `src/routes/` | The pages: calendar, analytics, upload, sign-in. |
 | `src/app.css` | Emkay brand colours and Open Sans, from the Emkay guidebook. |
@@ -203,5 +221,5 @@ npm test
 
 The tests build a sample workbook with the Python template builder and read it back, so they
 need the Python tools set up first (see `tools/README.md`). If the template and the reader ever
-disagree on a name, these tests fail. LinkedIn exports in the tests are made up and written by
-`tests/xls-writer.ts`; real exports are never kept in the repository.
+disagree on a name, these tests fail. Analytics exports in the tests are made up
+(`tests/linkedin-sample.ts`, `tests/platform-samples.ts`); real exports are never kept in the repository.

@@ -1,25 +1,32 @@
-// The four analytics tables, built by combining every upload's cleaned rows. Nothing here is
-// saved: the tables are rebuilt from the uploads whenever they are needed, so they always follow
-// the uploads and the current rules.
+// The analytics tables, built by combining every upload's cleaned rows, for every platform.
+// Nothing here is saved: the tables are rebuilt from the uploads whenever they are needed, so
+// they always follow the uploads and the current rules.
 //
 //   posts      every snapshot of every post: one row per post (per campaign, if sponsored) per
-//              export, tagged with the export's "as of" day. latestPosts() keeps the newest of
-//              each; postHistory() gives one post's figures over time.
-//   daily      per brand, file and day, one set of figures: the newest export covering that day
-//              wins, and older exports still supply days the newer ones no longer cover.
-//   audience   every breakdown from every export, tagged with its day (followers) or period
-//              (visitors), so the mix can be followed over time.
+//              export, tagged with the export's period. latestPosts() gives each post's figures:
+//              the newest snapshot where figures are lifetime totals (LinkedIn, Instagram, X), or
+//              the calendar months added up where they cover only the period (YouTube; exports
+//              over other periods are kept but not counted).
+//   daily      per brand, platform, file and day, one set of figures: for each figure, the newest
+//              export that has it for that day wins, and older exports still supply days (and
+//              figures) newer ones no longer cover.
+//   audience   every breakdown from every export, tagged with its day or period.
 //   benchmark  every competitor export: the brand and its peers over each period.
+//   totals     the account's totals over each exported period (followers gained, reach, ...).
 
 import type { BrandId } from '../brands';
-import type { AudienceRow, BenchmarkRow, LinkedInFile, PostRow } from './rows';
-import type { AnalyticsUpload } from './uploads';
+import type { AudienceRow, BenchmarkRow, Measures, Platform, PostRow } from './rows';
+import { isWholeMonth, type AnalyticsUpload } from './uploads';
 
 export interface PostSnapshot extends PostRow {
   brand: BrandId;
-  platform: 'linkedin';
-  /** The day of the export these figures are from. */
+  platform: Platform;
+  /** The period the export covers; for lifetime figures, `asOf` (= `to`) is what matters. */
+  from: string;
+  to: string;
+  /** The day these figures are as of. */
   asOf: string;
+  figures: 'lifetime' | 'period';
   uploadId: string;
 }
 
@@ -31,24 +38,36 @@ export interface DailyFigures {
 
 export interface AudienceSnapshot extends AudienceRow {
   brand: BrandId;
-  of: 'followers' | 'visitors';
-  /** Followers: who follows on `to`. Visitors: who visited from `from` to `to`. */
+  platform: Platform;
+  of: 'followers' | 'visitors' | 'views';
+  /** Followers: who follows on `to`. Visitors and views: over `from` to `to`. */
   from: string;
   to: string;
 }
 
 export interface BenchmarkSnapshot extends BenchmarkRow {
   brand: BrandId;
+  platform: Platform;
   from: string;
   to: string;
 }
 
+export interface TotalsSnapshot {
+  brand: BrandId;
+  platform: Platform;
+  file: string;
+  from: string;
+  to: string;
+  values: Record<string, number | null>;
+}
+
 export interface Tables {
   posts: PostSnapshot[];
-  /** brand → file → day → figures */
-  daily: Map<BrandId, Map<LinkedInFile, Map<string, DailyFigures>>>;
+  /** brand → "<platform>/<file>" → day → figures */
+  daily: Map<BrandId, Map<string, Map<string, DailyFigures>>>;
   audience: AudienceSnapshot[];
   benchmark: BenchmarkSnapshot[];
+  totals: TotalsSnapshot[];
 }
 
 /** Oldest export first; for the same day, the one uploaded later counts as newer. */
@@ -56,70 +75,103 @@ const byAge = (a: AnalyticsUpload, b: AnalyticsUpload) => a.to.localeCompare(b.t
 
 export function buildTables(uploads: AnalyticsUpload[]): Tables {
   const ordered = [...uploads].sort(byAge);
-  const tables: Tables = { posts: [], daily: new Map(), audience: [], benchmark: [] };
-  // Re-uploading an export for the same period replaces the earlier one in the benchmark.
-  const benchmarks = new Map<string, BenchmarkSnapshot[]>();
-  // Two uploads of exports from the same day: only the later one's audience counts.
+  const tables: Tables = { posts: [], daily: new Map(), audience: [], benchmark: [], totals: [] };
+  // Re-exports of the same period replace the earlier one (later uploads come later here).
   const audiences = new Map<string, AudienceSnapshot[]>();
+  const benchmarks = new Map<string, BenchmarkSnapshot[]>();
+  const totals = new Map<string, TotalsSnapshot>();
 
   for (const u of ordered) {
     const d = u.data;
-    for (const p of d.posts) tables.posts.push({ ...p, brand: u.brand, platform: 'linkedin', asOf: u.to, uploadId: u.id });
+    const tag = { brand: u.brand, platform: u.platform, from: u.from, to: u.to };
+    for (const p of d.posts) tables.posts.push({ ...p, ...tag, asOf: u.to, figures: d.postFigures, uploadId: u.id });
 
     if (d.daily.length) {
-      const brand = tables.daily.get(u.brand) ?? new Map<LinkedInFile, Map<string, DailyFigures>>();
+      const brand = tables.daily.get(u.brand) ?? new Map<string, Map<string, DailyFigures>>();
       tables.daily.set(u.brand, brand);
-      const days = brand.get(u.file) ?? new Map<string, DailyFigures>();
-      brand.set(u.file, days);
-      for (const row of d.daily) days.set(row.date, { values: row.values, asOf: u.to });
+      const key = `${u.platform}/${u.file}`;
+      const days = brand.get(key) ?? new Map<string, DailyFigures>();
+      brand.set(key, days);
+      for (const row of d.daily) days.set(row.date, { values: { ...days.get(row.date)?.values, ...row.values }, asOf: u.to });
     }
 
+    const period = `${u.brand}|${u.platform}|${u.file}|${u.from}|${u.to}`;
     if (d.audience) {
       const of = d.audience.of;
-      audiences.set(`${u.brand}|${of}|${u.from}|${u.to}`, d.audience.rows.map((r) => ({ ...r, brand: u.brand, of, from: u.from, to: u.to })));
+      audiences.set(period, d.audience.rows.map((r) => ({ ...r, ...tag, of })));
     }
-    if (d.benchmark.length) {
-      benchmarks.set(`${u.brand}|${u.from}|${u.to}`, d.benchmark.map((b) => ({ ...b, brand: u.brand, from: u.from, to: u.to })));
-    }
+    if (d.benchmark.length) benchmarks.set(period, d.benchmark.map((b) => ({ ...b, ...tag })));
+    if (d.totals) totals.set(period, { ...tag, file: u.file, values: d.totals });
   }
   tables.audience = [...audiences.values()].flat();
   tables.benchmark = [...benchmarks.values()].flat();
+  tables.totals = [...totals.values()];
   return tables;
 }
 
-/** What makes a post row unique within an export: the post, and for sponsored rows the campaign. */
-export const rowKey = (p: Pick<PostSnapshot, 'brand' | 'postId' | 'sponsored' | 'campaignId'>) =>
-  `${p.brand}|${p.postId}|${p.sponsored ? `s|${p.campaignId ?? ''}` : 'o'}`;
+/** What makes a post row unique: the platform, the post, and for sponsored rows the campaign. */
+export const rowKey = (p: Pick<PostSnapshot, 'brand' | 'platform' | 'postId' | 'sponsored' | 'campaignId'>) =>
+  `${p.brand}|${p.platform}|${p.postId}|${p.sponsored ? `s|${p.campaignId ?? ''}` : 'o'}`;
 
-/** The newest snapshot of every post (and of every campaign of boosted posts). */
-export function latestPosts(posts: PostSnapshot[]): PostSnapshot[] {
-  const out = new Map<string, PostSnapshot>();
-  for (const p of posts) {
-    const k = rowKey(p);
-    const seen = out.get(k);
-    if (!seen || p.asOf >= seen.asOf) out.set(k, p);
+const MEASURES: (keyof Measures)[] = ['impressions', 'reach', 'views', 'clicks', 'reactions', 'comments', 'reposts', 'shares', 'saves', 'follows', 'watchHours'];
+
+/** Period figures added up: a measure is null only when no period has it. */
+function addUp(rows: PostSnapshot[]): PostSnapshot {
+  const newest = rows.reduce((a, b) => (b.to > a.to ? b : a));
+  const sum: PostSnapshot = { ...newest, from: rows.map((r) => r.from).sort()[0], engagementRate: null };
+  for (const m of MEASURES) {
+    const values = rows.map((r) => r[m]).filter((v): v is number => v !== null);
+    sum[m] = values.length ? values.reduce((a, b) => a + b, 0) : null;
   }
-  return [...out.values()];
+  return sum;
 }
 
-/** One post's organic figures over time, one point per export, oldest first. */
-export function postHistory(posts: PostSnapshot[], brand: BrandId, postId: string): PostSnapshot[] {
-  const byDay = new Map<string, PostSnapshot>();
-  for (const p of posts) if (p.brand === brand && p.postId === postId && !p.sponsored) byDay.set(p.asOf, p);
-  return [...byDay.values()].sort((a, b) => a.asOf.localeCompare(b.asOf));
+/**
+ * Each post's figures. Lifetime figures: the newest snapshot. Period figures: the calendar months
+ * added up, each month's newest upload counting (a post with no whole month uploaded is left out).
+ */
+export function latestPosts(posts: PostSnapshot[]): PostSnapshot[] {
+  const groups = new Map<string, PostSnapshot[]>();
+  for (const p of posts) groups.set(rowKey(p), [...(groups.get(rowKey(p)) ?? []), p]);
+  const out: PostSnapshot[] = [];
+  for (const rows of groups.values()) {
+    if (rows[0].figures === 'lifetime') {
+      out.push(rows.reduce((a, b) => (b.asOf >= a.asOf ? b : a)));
+      continue;
+    }
+    const byPeriod = new Map<string, PostSnapshot>();
+    for (const r of rows) byPeriod.set(`${r.from}|${r.to}`, r); // later uploads come later
+    const months = [...byPeriod.values()].filter((r) => isWholeMonth(r.from, r.to));
+    if (months.length) out.push(addUp(months));
+  }
+  return out;
+}
+
+/**
+ * One post's organic figures over time, oldest first: a point per export for lifetime figures
+ * (how the totals grew), a point per calendar month for period figures (what each month added).
+ */
+export function postHistory(posts: PostSnapshot[], brand: BrandId, postId: string, platform?: Platform): PostSnapshot[] {
+  const byPoint = new Map<string, PostSnapshot>();
+  for (const p of posts) {
+    if (p.brand !== brand || p.postId !== postId || p.sponsored || (platform && p.platform !== platform)) continue;
+    if (p.figures === 'period' && !isWholeMonth(p.from, p.to)) continue;
+    byPoint.set(p.figures === 'period' ? p.from : p.asOf, p);
+  }
+  return [...byPoint.values()].sort((a, b) => a.to.localeCompare(b.to));
 }
 
 /** One daily figure for a brand, oldest day first. */
-export function dailySeries(tables: Tables, brand: BrandId, file: LinkedInFile, column: string): { date: string; value: number | null }[] {
-  const days = tables.daily.get(brand)?.get(file);
+export function dailySeries(tables: Tables, brand: BrandId, platform: Platform, file: string, column: string): { date: string; value: number | null }[] {
+  const days = tables.daily.get(brand)?.get(`${platform}/${file}`);
   if (!days) return [];
   return [...days.entries()].map(([date, f]) => ({ date, value: f.values[column] ?? null })).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /** A daily figure added up per month (YYYY-MM → total), counting only days that have it. */
-export function monthlyTotals(tables: Tables, brand: BrandId, file: LinkedInFile, column: string): Map<string, number> {
+export function monthlyTotals(tables: Tables, brand: BrandId, platform: Platform, file: string, column: string): Map<string, number> {
   const out = new Map<string, number>();
-  for (const { date, value } of dailySeries(tables, brand, file, column)) {
+  for (const { date, value } of dailySeries(tables, brand, platform, file, column)) {
     if (value === null) continue;
     out.set(date.slice(0, 7), (out.get(date.slice(0, 7)) ?? 0) + value);
   }
@@ -127,7 +179,7 @@ export function monthlyTotals(tables: Tables, brand: BrandId, file: LinkedInFile
 }
 
 /** The last day a brand's daily figures from a file reach, or null. */
-export function lastDay(tables: Tables, brand: BrandId, file: LinkedInFile): string | null {
-  const days = tables.daily.get(brand)?.get(file);
+export function lastDay(tables: Tables, brand: BrandId, platform: Platform, file: string): string | null {
+  const days = tables.daily.get(brand)?.get(`${platform}/${file}`);
   return days ? [...days.keys()].sort().at(-1) ?? null : null;
 }

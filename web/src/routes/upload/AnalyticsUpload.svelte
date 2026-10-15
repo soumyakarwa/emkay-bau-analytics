@@ -1,19 +1,25 @@
 <script lang="ts">
-  // The LinkedIn analytics section: a brand's monthly exports, several at once. Each file is
-  // checked on its own as soon as it is chosen; "Publish" then publishes every file that is
-  // ready, skipping (and listing) the rest, so one bad file never holds up the others.
+  // The analytics section: a brand's monthly exports from every platform, several at once. Each
+  // file is recognised and checked on its own as soon as it is chosen; "Publish" then publishes
+  // every file that is ready, skipping (and listing) the rest, so one bad file never holds up the
+  // others. Below: what is due this month, each platform's files, and the upload history.
 
   import { invalidateAll } from '$app/navigation';
-  import type { LinkedInFile } from '$lib/analytics/rows';
-  import type { AnalyticsUploadInfo, Coverage } from '$lib/analytics/uploads';
-  import { KIND_LABEL, brandName, day, daysAgo, failureOf, when } from './format';
+  import type { AnalyticsUploadInfo, Coverage, PlatformCoverage } from '$lib/analytics/uploads';
+  import { brandName, day, exportLabel, failureOf, when } from './format';
+
+  type Status = Coverage & { due: boolean };
+  type PlatformStatus = Omit<PlatformCoverage, 'files'> & { files: Status[] };
 
   interface Checked {
     status: 'published' | 'ready' | 'unchanged' | 'refused';
     message: string | null;
     contentHash: string;
     upload: AnalyticsUploadInfo | null;
-    export: { file: LinkedInFile; page: string | null; from: string; to: string; posts: number; sponsored: number; days: number; audience: number; peers: number } | null;
+    export: {
+      platform: string; file: string; label: string; account: string | null; from: string; to: string;
+      posts: number; sponsored: number; days: number; audience: number; peers: number; totals: number;
+    } | null;
   }
 
   interface Row {
@@ -27,7 +33,7 @@
   let { brand, uploadedBy, coverage, history }: {
     brand: string;
     uploadedBy: string;
-    coverage: Coverage[] | null;
+    coverage: PlatformStatus[] | null;
     history: AnalyticsUploadInfo[];
   } = $props();
 
@@ -119,34 +125,52 @@
   };
 
   function describe(x: NonNullable<Checked['export']>): string {
-    const span = `${day(x.from)} – ${day(x.to)}`;
-    if (x.file === 'content') return `${span} · ${x.posts} posts${x.sponsored ? ` + ${x.sponsored} sponsored rows` : ''}`;
-    if (x.file === 'competitors') return `${span} · ${x.peers} peer pages`;
-    return `${span} · ${x.days} days, ${x.audience} audience rows`;
+    const parts = [`${day(x.from)} – ${day(x.to)}`];
+    if (x.account) parts.push(x.account);
+    if (x.posts) parts.push(`${x.posts} posts${x.sponsored ? ` + ${x.sponsored} sponsored rows` : ''}`);
+    if (x.days) parts.push(`${x.days} days`);
+    if (x.audience) parts.push(`${x.audience} audience rows`);
+    if (x.peers) parts.push(`${x.peers} peer pages`);
+    if (x.totals && !x.posts && !x.days) parts.push(`${x.totals} totals`);
+    return parts.join(' · ');
   }
+
+  /** "This month": per platform in use, how many of its required files are up to date. */
+  const thisMonth = $derived((coverage ?? []).filter((p) => p.used).map((p) => {
+    const required = p.files.filter((f) => !f.optional);
+    return { label: p.label, done: required.filter((f) => !f.due).length, of: required.length };
+  }));
+  const status = (f: Status) =>
+    !f.uploads ? (f.optional ? 'Not used' : 'Not uploaded yet')
+      : f.gaps.length ? `⚠ Gap: ${f.gaps.map((g) => `${day(g.from)} – ${day(g.to)}`).join(', ')}`
+      : f.due ? (f.rule === 'month' ? '⚠ Last month not uploaded yet' : '⚠ Over a month old: time for a new export')
+      : 'Up to date';
 </script>
 
 <div
   class="card dropzone"
   class:dragging
   role="group"
-  aria-label="LinkedIn exports"
+  aria-label="Analytics exports"
   ondragover={(e) => { e.preventDefault(); dragging = !!brand; }}
   ondragleave={() => (dragging = false)}
   ondrop={(e) => { e.preventDefault(); dragging = false; if (!publishing) choose(e.dataTransfer?.files); }}
 >
   <label>
-    <span>LinkedIn exports: choose or drop all of this month's files at once</span>
+    <span>Exports: choose or drop all of this month's files at once, from any platform</span>
     <input
       bind:this={fileInput}
       type="file"
       multiple
-      accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      accept=".xls,.xlsx,.csv,.zip,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/zip"
       disabled={!brand || publishing || checking}
       onchange={(e) => choose(e.currentTarget.files)}
     />
   </label>
-  <p class="note">Content, Followers and Visitors (and Competitors, if set up), exactly as LinkedIn gives them. Each file is checked as soon as you choose it.</p>
+  <p class="note">
+    LinkedIn (.xls), YouTube (the .zip files, as downloaded), Instagram and X (.csv): exactly as each platform gives them,
+    without opening or renaming them. Each file is recognised and checked as soon as you choose it.
+  </p>
 </div>
 
 {#if rows.length}
@@ -157,7 +181,7 @@
         <li class="state-{r.state}">
           <span class="icon" aria-hidden="true">{ICON[r.state]}</span>
           <div class="what">
-            <strong>{x ? KIND_LABEL[x.file] : r.file.name}</strong>
+            <strong>{x ? x.label : r.file.name}</strong>
             {#if x}<span class="sub">{r.file.name} · {describe(x)}</span>{/if}
             {#if r.message}<span class="why">{r.message}</span>{/if}
             {#if r.state === 'unchanged' && r.result?.upload}<span class="sub">Uploaded {when(r.result.upload.uploadedAt)}{r.result.upload.uploadedBy ? ` by ${r.result.upload.uploadedBy}` : ''}.</span>{/if}
@@ -186,29 +210,42 @@
 
 {#if coverage}
   <section class="history">
-    <h2>LinkedIn files · {brandName(brand)}</h2>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>File</th><th>Figures up to</th><th>Covered since</th><th class="num">Uploads</th><th>Status</th></tr></thead>
-        <tbody>
-          {#each coverage as c}
-            <tr>
-              <td>{c.label}{#if c.optional}<span class="sub">optional</span>{/if}</td>
-              <td>{c.to ? day(c.to) : '–'}</td>
-              <td>{c.from ? day(c.from) : '–'}</td>
-              <td class="num">{c.uploads}</td>
-              <td>
-                {#if !c.uploads}<span class="sub">{c.optional ? 'Not used yet' : `Not uploaded yet: ${c.help}`}</span>
-                {:else if c.gaps.length}⚠ Gap: {c.gaps.map((g) => `${day(g.from)} – ${day(g.to)}`).join(', ')}
-                {:else if c.to && daysAgo(c.to) > 40}⚠ Over a month old: time for a new export
-                {:else}Up to date{/if}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-    <p class="note">Each month, export the last 365 days of Content, Followers and Visitors (and Competitors, if set up) and upload them here.</p>
+    <h2>Files · {brandName(brand)}</h2>
+    {#if thisMonth.length}
+      <p class="month">
+        <strong>This month:</strong>
+        {#each thisMonth as t, i}{i ? ' · ' : ''}<span class:due={t.done < t.of}>{t.label} {t.done < t.of ? '⚠' : '✔'} {t.done}/{t.of}</span>{/each}
+      </p>
+    {/if}
+    {#each coverage as p (p.platform)}
+      {@const issues = p.files.filter((f) => f.due || f.gaps.length).length}
+      <details class="platform" open={p.used && issues > 0}>
+        <summary>
+          <strong>{p.label}</strong>
+          <span class="sub-inline">
+            {#if !p.used}Not used yet
+            {:else if issues}⚠ {issues} {issues === 1 ? 'file needs' : 'files need'} attention
+            {:else}Up to date{/if}
+          </span>
+        </summary>
+        <p class="note routine">{p.routine}</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>File</th><th>Covered</th><th class="num">Uploads</th><th>Status</th></tr></thead>
+            <tbody>
+              {#each p.files as f}
+                <tr>
+                  <td>{f.label}{#if f.optional}<span class="sub">optional</span>{/if}</td>
+                  <td>{f.from && f.to ? `${day(f.from)} – ${day(f.to)}` : '–'}</td>
+                  <td class="num">{f.uploads}</td>
+                  <td>{status(f)}{#if !f.uploads && !f.optional}<span class="sub">{f.help}</span>{/if}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    {/each}
   </section>
 {/if}
 
@@ -225,18 +262,18 @@
             <tr>
               <td>{when(u.uploadedAt)}</td>
               {#if !brand}<td>{brandName(u.brand)}</td>{/if}
-              <td>{KIND_LABEL[u.file]}{#if u.warnings.length}<span class="sub" title={u.warnings.join('\n')}>⚠ {u.warnings.length}</span>{/if}</td>
+              <td>{exportLabel(u.platform, u.file)}{#if u.warnings.length}<span class="sub" title={u.warnings.join('\n')}>⚠ {u.warnings.length}</span>{/if}</td>
               <td>{day(u.from)} – {day(u.to)}</td>
               <td>{u.uploadedBy ?? '—'}</td>
               <td class="file">{u.fileName}</td>
-              <td class="num">{u.file === 'content' ? u.counts.posts : '–'}</td>
+              <td class="num">{u.counts.posts || '–'}</td>
             </tr>
           {/each}
         </tbody>
       </table>
     </div>
   {:else}
-    <p class="note">No LinkedIn exports uploaded yet.</p>
+    <p class="note">No analytics exports uploaded yet.</p>
   {/if}
 </section>
 
@@ -258,6 +295,14 @@
   .state-unchanged, .state-duplicate { border-left-color: var(--grey) !important; }
   .state-checking, .state-publishing { border-left-color: var(--amber) !important; }
   .go { align-self: center; font-weight: 600; }
+  .month { margin: 4px 0 12px; font-size: 14px; }
+  .month .due { color: #8f1f1f; font-weight: 600; }
+  details.platform { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); margin-bottom: 8px; }
+  details.platform summary { cursor: pointer; padding: 10px 14px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  details.platform[open] summary { border-bottom: 1px solid var(--border); }
+  details.platform .table-wrap { border: none; border-radius: 0; }
+  .sub-inline { font-size: 13px; color: var(--text-muted); }
+  .routine { padding: 0 14px; }
   @media (max-width: 520px) {
     .batch > li { grid-template-columns: 22px 1fr; }
     .state { grid-column: 2; }

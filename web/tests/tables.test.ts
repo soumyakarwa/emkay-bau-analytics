@@ -71,21 +71,21 @@ describe('posts', () => {
 describe('daily', () => {
   it('takes each day from the newest export covering it, and keeps days older exports alone still have', async () => {
     const t = buildTables(await loadAnalyticsUploads(await threeMonths()));
-    const series = dailySeries(t, 'im', 'content', 'Impressions (organic)');
+    const series = dailySeries(t, 'im', 'linkedin', 'content', 'Impressions (organic)');
     const at = (d: string) => series.find((s) => s.date === d)?.value;
     expect([at('2025-09-13'), at('2025-10-13'), at('2025-10-14'), at('2025-11-12'), at('2026-11-11')]).toEqual([100, 100, 120, 130, 130]);
     expect(series[0].date).toBe('2025-09-13'); // a year and two months: more than any one export
     expect(series).toHaveLength(425);
-    expect(lastDay(t, 'im', 'content')).toBe('2026-11-11');
-    expect(monthlyTotals(t, 'im', 'content', 'Impressions (organic)').get('2026-09')).toBe(30 * 130);
+    expect(lastDay(t, 'im', 'linkedin', 'content')).toBe('2026-11-11');
+    expect(monthlyTotals(t, 'im', 'linkedin', 'content', 'Impressions (organic)').get('2026-09')).toBe(30 * 130);
   });
 
   it('keeps organic and sponsored followers apart', async () => {
     const store = memoryStore();
     await upload(store, followersExport({ from: '2026-01-01', to: '2026-01-31' }, { organic: 3, sponsored: 4 }), 'p_followers_1.xls', '2026-02-01');
     const t = buildTables(await loadAnalyticsUploads(store));
-    expect(monthlyTotals(t, 'im', 'followers', 'Organic followers').get('2026-01')).toBe(93);
-    expect(monthlyTotals(t, 'im', 'followers', 'Sponsored followers').get('2026-01')).toBe(124);
+    expect(monthlyTotals(t, 'im', 'linkedin', 'followers', 'Organic followers').get('2026-01')).toBe(93);
+    expect(monthlyTotals(t, 'im', 'linkedin', 'followers', 'Sponsored followers').get('2026-01')).toBe(124);
   });
 });
 

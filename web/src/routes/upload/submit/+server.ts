@@ -1,32 +1,21 @@
 // Checks (mode=check) or publishes (mode=publish) one file sent from a section of the upload page:
-// a brand's calendar workbook (section=calendar) or one of its LinkedIn analytics exports
+// a brand's calendar workbook (section=calendar) or one of its analytics exports from any platform
 // (section=analytics). A file sent to the wrong section is turned away with where it belongs.
 // Publishing re-sends the same file; its fingerprint must match the one that was checked, so
 // what gets published is exactly what was previewed.
 
 import { error, json } from '@sveltejs/kit';
 import { brandById, type BrandId } from '$lib/brands';
-import { linkedInFileOf } from '$lib/analytics/linkedin';
+import { detectExport, exportLabel } from '$lib/analytics/platforms';
 import { publishAnalyticsFile } from '$lib/analytics/uploads';
 import { publishFile, sha256 } from '$lib/dataset/uploads';
 import { getStore } from '$lib/server/data';
 import { today } from '$lib/server/today';
-import { isXls } from '$lib/workbook/xls';
-import { readXlsx } from '$lib/workbook/xlsx';
 import { summarise } from '$lib/workbook/summary';
 import type { RequestHandler } from './$types';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
-/** A LinkedIn export: .xls, or .xlsx with LinkedIn's sheets (the competitor export). */
-function isLinkedIn(bytes: Uint8Array): boolean {
-  if (isXls(bytes)) return true;
-  try {
-    return linkedInFileOf(readXlsx(bytes)) !== null;
-  } catch {
-    return false;
-  }
-}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const form = await request.formData();
@@ -43,9 +32,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
   if (!(file instanceof File) || file.size === 0) error(400, 'Choose a file to upload.');
   if (file.size > MAX_BYTES) error(400, 'That file is too large (over 10 MB).');
-  if (!/\.xlsx?$/i.test(file.name)) {
-    error(400, section === 'calendar' ? 'Choose the calendar workbook (.xlsx).' : 'Choose LinkedIn exports (.xls, or .xlsx for competitors).');
-  }
+  if (section === 'analytics' && !/\.(xlsx?|csv|zip)$/i.test(file.name)) error(400, `${file.name} is not an analytics export (.xls, .xlsx, .csv or .zip).`);
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   const contentHash = await sha256(bytes);
@@ -53,12 +40,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(409, 'This file changed since it was checked. Check it again before publishing.');
   }
 
-  const linkedIn = isLinkedIn(bytes);
-  if (section === 'calendar' && linkedIn) error(400, `${file.name} is a LinkedIn export: upload it under LinkedIn analytics.`);
-  if (section === 'analytics' && !linkedIn) {
-    error(400, /\.xlsx$/i.test(file.name)
-      ? `${file.name} is not a LinkedIn export. If it is the calendar workbook, upload it under Calendar workbook.`
-      : `${file.name} is not a LinkedIn export.`);
+  const found = detectExport({ name: file.name, bytes });
+  if (section === 'calendar' && found) error(400, `${file.name} is a ${exportLabel(found.platform, found.file)} export: upload it under Analytics.`);
+  if (section === 'calendar' && !/\.xlsx$/i.test(file.name)) error(400, 'Choose the calendar workbook (.xlsx).');
+  if (section === 'analytics' && !found && /\.xlsx$/i.test(file.name)) {
+    error(400, `${file.name} is not an analytics export. If it is the calendar workbook, upload it under Calendar workbook.`);
   }
 
   if (section === 'analytics') {
@@ -76,15 +62,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       upload: r.upload,
       export: r.data
         ? {
+            platform: r.data.platform,
             file: r.data.file,
-            page: r.data.page,
+            label: exportLabel(r.data.platform, r.data.file),
+            account: r.data.account,
             from: r.data.from,
             to: r.data.to,
             posts: r.data.posts.filter((p) => !p.sponsored).length,
             sponsored: r.data.posts.filter((p) => p.sponsored).length,
             days: r.data.daily.length,
             audience: r.data.audience?.rows.length ?? 0,
-            peers: r.data.benchmark.filter((b) => !b.own).length
+            peers: r.data.benchmark.filter((b) => !b.own).length,
+            totals: r.data.totals ? Object.keys(r.data.totals).length : 0
           }
         : null
     });

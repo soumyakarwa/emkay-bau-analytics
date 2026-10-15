@@ -1,7 +1,8 @@
-// Publishes LinkedIn analytics exports into the local data folder (web/.data), as the upload page
-// does. Every upload is kept, as its original file and its cleaned rows.
+// Publishes analytics exports from any platform into the local data folder (web/.data), as the
+// upload page does. Every upload is kept, as its original file and its cleaned rows.
 //
 //   npm run publish-analytics -- --for im emkayinvestmentmanagers_content_1791966587478.xls …
+//   npm run publish-analytics -- --for global "Content 2026-09-01_2026-10-01 Emkay Global Financial Services Ltd..zip"
 //
 // --for   the brand the exports are for (global, im or wealth); required
 // --by    who is uploading
@@ -10,6 +11,7 @@
 import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { brandById, type BrandId } from '../src/lib/brands';
+import { exportLabel } from '../src/lib/analytics/catalog';
 import { publishAnalyticsFile } from '../src/lib/analytics/uploads';
 import { folderStore } from '../src/lib/server/folder-store';
 import { brandName, parseArgs } from './print';
@@ -39,10 +41,10 @@ for (const file of files) {
     console.log(`= ${name}: already uploaded (${u.uploadedAt.slice(0, 16).replace('T', ' ')}), nothing new stored.`);
     continue;
   }
-  const what = u.file === 'content' ? `${u.counts.posts} posts, ${u.counts.sponsored} sponsored rows, ${u.counts.days} days`
-    : u.file === 'competitors' ? `${u.counts.benchmark} pages`
-    : `${u.counts.days} days, ${u.counts.audience} audience rows`;
-  console.log(`✔ ${name}: ${brandName(u.brand)} LinkedIn ${u.file}, ${u.from} to ${u.to}: ${what}.`);
+  const c = u.counts;
+  const what = [c.posts && `${c.posts} posts`, c.sponsored && `${c.sponsored} sponsored rows`, c.days && `${c.days} days`,
+    c.audience && `${c.audience} audience rows`, c.benchmark && `${c.benchmark} pages`, c.totals && `${c.totals} totals`].filter(Boolean).join(', ');
+  console.log(`✔ ${name}: ${brandName(u.brand)} ${exportLabel(u.platform, u.file)}, ${u.from} to ${u.to}: ${what}.`);
   for (const w of u.warnings) console.log(`  ⚠ ${w}`);
 }
 process.exit(failed ? 1 : 0);

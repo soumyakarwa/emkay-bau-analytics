@@ -1,5 +1,6 @@
 import { brandById, type BrandId } from '$lib/brands';
-import { coverage, listAnalyticsUploads } from '$lib/analytics/uploads';
+import { coverage, isDue, listAnalyticsUploads } from '$lib/analytics/uploads';
+import { today } from '$lib/server/today';
 import { latestUploads, listUploads } from '$lib/dataset/uploads';
 import { getStore } from '$lib/server/data';
 import type { PageServerLoad } from './$types';
@@ -20,6 +21,8 @@ export const load: PageServerLoad = async ({ url }) => {
     team,
     history: history.slice(0, 30).map((u) => ({ ...u, live: latest.get(`${u.brand}|${u.fy}`) === u.id })),
     analyticsHistory: analytics.slice().reverse().slice(0, 30),
-    coverage: brand ? coverage(analytics, brand) : null
+    coverage: brand
+      ? coverage(analytics, brand).map((p) => ({ ...p, files: p.files.map((f) => ({ ...f, due: isDue(f, today()) })) }))
+      : null
   };
 };

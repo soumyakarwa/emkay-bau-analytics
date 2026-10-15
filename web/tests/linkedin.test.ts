@@ -55,7 +55,7 @@ describe('content export', () => {
   ], DAYS), 'samplepage_content_1.xls');
 
   it('is recognised, with the days it covers', () => {
-    expect([x.file, x.page, x.from, x.to]).toEqual(['content', 'samplepage', '2026-08-01', '2026-10-12']);
+    expect([x.platform, x.file, x.account, x.from, x.to, x.postFigures]).toEqual(['linkedin', 'content', 'samplepage', '2026-08-01', '2026-10-12', 'lifetime']);
     expect(x.daily).toHaveLength(73);
     expect(x.daily[0]).toEqual({ date: '2026-08-01', values: { 'Impressions (organic)': 100, 'Impressions (sponsored)': 0, 'Clicks (organic)': 5 } });
   });
@@ -148,10 +148,10 @@ describe('analytics uploads', () => {
     expect(check.status).toBe('ready');
     expect(await store.list('')).toEqual([]);
 
-    const r = await publishAnalyticsFile(store, file, { fileName: 'a_content_1.xls', forBrand: 'im', uploadedBy: 'Your name', now: at('2026-10-14') });
+    const r = await publishAnalyticsFile(store, file, { fileName: 'emkayinvestmentmanagers_content_1.xls', forBrand: 'im', uploadedBy: 'Your name', now: at('2026-10-14') });
     expect(r.status).toBe('published');
-    expect(r.upload).toMatchObject({ brand: 'im', file: 'content', from: '2026-08-01', to: '2026-10-12', uploadedBy: 'Your name',
-      counts: { posts: 1, sponsored: 0, days: 73, audience: 0, benchmark: 0 }, warnings: [] });
+    expect(r.upload).toMatchObject({ brand: 'im', platform: 'linkedin', file: 'content', account: 'emkayinvestmentmanagers', from: '2026-08-01', to: '2026-10-12',
+      uploadedBy: 'Your name', counts: { posts: 1, sponsored: 0, days: 73, audience: 0, benchmark: 0, totals: 0 }, warnings: [] });
     expect((await store.list('analytics/im/')).sort()).toEqual([
       `analytics/im/linkedin/content/${r.upload!.id}.json`,
       `analytics/im/linkedin/content/${r.upload!.id}.xls.b64`
@@ -186,23 +186,26 @@ describe('analytics uploads', () => {
     expect((await store.list('analytics/global/linkedin/competitors/')).filter((k) => k.endsWith('.xlsx.b64'))).toHaveLength(1);
   });
 
-  it('refuse files that are not LinkedIn exports, with the reason', async () => {
+  it('refuse files that are not analytics exports, with the reason', async () => {
     const r = await publishAnalyticsFile(memoryStore(), writeXls([{ name: 'Sheet1', rows: [['a']] }]), { fileName: 'x.xls', forBrand: 'im' });
     expect(r).toMatchObject({ status: 'refused', upload: null });
-    expect(r.message).toMatch(/not a LinkedIn page analytics export/);
+    expect(r.message).toMatch(/not an analytics export the site reads/);
   });
 
   it('warn about a gap, and about an export older than one already uploaded', async () => {
     const store = memoryStore();
-    await publishAnalyticsFile(store, followersExport({ from: '2026-08-01', to: '2026-08-31' }), { fileName: 'p_followers_1.xls', forBrand: 'im', now: at('2026-09-01') });
-    const gap = await publishAnalyticsFile(store, followersExport({ from: '2026-09-11', to: '2026-10-10' }), { fileName: 'p_followers_2.xls', forBrand: 'im', now: at('2026-10-11') });
+    await publishAnalyticsFile(store, followersExport({ from: '2026-08-01', to: '2026-08-31' }), { fileName: 'emkayinvestmentmanagers_followers_1.xls', forBrand: 'im', now: at('2026-09-01') });
+    const gap = await publishAnalyticsFile(store, followersExport({ from: '2026-09-11', to: '2026-10-10' }), { fileName: 'emkayinvestmentmanagers_followers_2.xls', forBrand: 'im', now: at('2026-10-11') });
     expect(gap.upload!.warnings).toEqual([expect.stringMatching(/^No figures for 2026-09-01 to 2026-09-10/)]);
-    const old = await publishAnalyticsFile(store, followersExport({ from: '2026-07-01', to: '2026-07-31' }), { fileName: 'p_followers_3.xls', forBrand: 'im', now: at('2026-10-12') });
+    const old = await publishAnalyticsFile(store, followersExport({ from: '2026-07-01', to: '2026-07-31' }), { fileName: 'emkayinvestmentmanagers_followers_3.xls', forBrand: 'im', now: at('2026-10-12') });
     expect(old.upload!.warnings).toEqual([expect.stringMatching(/^This export ends on 2026-07-31, before the latest one/)]);
 
-    const followers = coverage(await listAnalyticsUploads(store), 'im').find((c) => c.file === 'followers')!;
-    expect(followers).toMatchObject({ uploads: 3, from: '2026-07-01', to: '2026-10-10', gaps: [{ from: '2026-09-01', to: '2026-09-10' }] });
-    expect(coverage([], 'im').map((c) => [c.file, c.uploads, c.optional])).toEqual([
+    const linkedin = coverage(await listAnalyticsUploads(store), 'im').find((p) => p.platform === 'linkedin')!;
+    expect(linkedin.used).toBe(true);
+    expect(linkedin.files.find((c) => c.file === 'followers')).toMatchObject({ uploads: 3, from: '2026-07-01', to: '2026-10-10', gaps: [{ from: '2026-09-01', to: '2026-09-10' }] });
+    const none = coverage([], 'im');
+    expect(none.map((p) => [p.platform, p.used])).toEqual([['linkedin', false], ['youtube', false], ['instagram', false], ['x', false]]);
+    expect(none[0].files.map((c) => [c.file, c.uploads, c.optional])).toEqual([
       ['content', 0, false], ['followers', 0, false], ['visitors', 0, false], ['competitors', 0, true]
     ]);
   });

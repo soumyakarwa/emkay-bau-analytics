@@ -53,7 +53,9 @@ export interface CalendarRef {
   row: number;
 }
 
-export interface AnalysedPost extends PostSnapshot {
+export interface AnalysedPost extends Omit<PostSnapshot, 'created'> {
+  /** LinkedIn always gives it. */
+  created: string;
   ageDays: number;
   /** Old enough on the export day to be compared (see SETTLE_DAYS). */
   settled: boolean;
@@ -95,12 +97,13 @@ const ref = (p: DatasetPost): CalendarRef => ({ key: p.key, title: p.title, date
 const isDropped = (p: DatasetPost) => !!p.status && normalise(p.status) === normalise(DROPPED);
 
 export function analyseLinkedIn(ds: Dataset, tables: Tables): LinkedInAnalysis {
-  const latest = latestPosts(tables.posts);
+  // LinkedIn only for now; the other platforms join when the pages are designed for them.
+  const latest = latestPosts(tables.posts.filter((p) => p.platform === 'linkedin')).map((p) => ({ ...p, created: p.created ?? p.asOf }));
   const asOf = latest.map((x) => x.asOf).sort().at(-1) ?? null;
   // The days the content exports cover, per brand (from their daily figures).
   const covered = new Map<BrandId, { from: string; to: string }>();
   for (const [brand, files] of tables.daily) {
-    const days = [...(files.get('content')?.keys() ?? [])].sort();
+    const days = [...(files.get('linkedin/content')?.keys() ?? [])].sort();
     if (days.length) covered.set(brand, { from: days[0], to: days.at(-1)! });
   }
 
@@ -150,7 +153,7 @@ export function analyseLinkedIn(ds: Dataset, tables: Tables): LinkedInAnalysis {
       ...post,
       ageDays,
       settled: ageDays >= SETTLE_DAYS,
-      interactionRate: post.impressions > 0 ? ((post.reactions ?? 0) + (post.comments ?? 0) + (post.reposts ?? 0)) / post.impressions : null,
+      interactionRate: post.impressions ? ((post.reactions ?? 0) + (post.comments ?? 0) + (post.reposts ?? 0)) / post.impressions : null,
       month,
       group: (c ? c.beforeBauStart : !!start && month < start) ? 'before-bau'
         : !c ? 'outside' : c.peg && c.countsAsBau ? 'bau' : 'not-bau',
@@ -323,11 +326,11 @@ export interface AccountMonth {
 
 /** Account-level totals per month, from the daily table. */
 export function accountMonths(tables: Tables, brand: BrandId, months: string[]): AccountMonth[] {
-  const organic = monthlyTotals(tables, brand, 'followers', 'Organic followers');
-  const sponsored = monthlyTotals(tables, brand, 'followers', 'Sponsored followers');
-  const views = monthlyTotals(tables, brand, 'visitors', 'Total page views (total)');
-  const impressions = monthlyTotals(tables, brand, 'content', 'Impressions (organic)');
-  const files = tables.daily.get(brand);
+  const organic = monthlyTotals(tables, brand, 'linkedin', 'followers', 'Organic followers');
+  const sponsored = monthlyTotals(tables, brand, 'linkedin', 'followers', 'Sponsored followers');
+  const views = monthlyTotals(tables, brand, 'linkedin', 'visitors', 'Total page views (total)');
+  const impressions = monthlyTotals(tables, brand, 'linkedin', 'content', 'Impressions (organic)');
+  const files = new Map([...(tables.daily.get(brand) ?? new Map()).entries()].filter(([k]) => k.startsWith('linkedin/')));
   const lastDay = [...(files?.values() ?? [])].flatMap((m) => [...m.keys()]).sort().at(-1) ?? '';
   return months.map((month) => ({
     month,

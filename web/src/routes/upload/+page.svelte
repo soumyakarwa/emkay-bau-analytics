@@ -18,7 +18,7 @@
 
   const SECTIONS = [
     { id: 'calendar', label: 'Calendar workbook', help: "The brand's content calendar (.xlsx). Upload it whenever the plan changes." },
-    { id: 'analytics', label: 'LinkedIn analytics', help: "The brand's LinkedIn exports (.xls), once a month, all files at once." }
+    { id: 'analytics', label: 'Analytics', help: "The brand's exports from LinkedIn, YouTube, Instagram and X, once a month, all files at once." }
   ] as const;
 
   /** The upload page with some of its address changed. */

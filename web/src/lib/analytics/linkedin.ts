@@ -14,7 +14,12 @@
 import { normalise } from '../workbook/contract';
 import { readXls, isXls } from '../workbook/xls';
 import { readXlsx, type Sheet } from '../workbook/xlsx';
-import type { Audience, BenchmarkRow, CleanedExport, DailyRow, LinkedInFile, PostRow, Value } from './rows';
+import { ExportError, cleanCell, exportDate, exportNumber, num, titleOf } from './common';
+import { NO_MEASURES, type Audience, type BenchmarkRow, type CleanedExport, type DailyRow, type PostRow, type Value } from './rows';
+
+export { exportDate, exportNumber, isExportError } from './common';
+
+export type LinkedInFile = 'content' | 'followers' | 'visitors' | 'competitors';
 
 const FILE_SHEETS: [LinkedInFile, string][] = [
   ['content', 'All posts'],
@@ -54,30 +59,6 @@ export function linkedInKey(url: string): string | null {
 
 export const isShortLinkedInLink = (url: string) => /^https?:\/\/(www\.)?lnkd\.in\//i.test(url);
 
-/** "10/13/2025" (US style: month first, as LinkedIn writes it) or an Excel date number → "2025-10-13". */
-export function exportDate(v: unknown): string | null {
-  if (typeof v === 'number' && v > 20000 && v < 80000) {
-    return new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000).toISOString().slice(0, 10);
-  }
-  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v ?? '').trim());
-  if (!m) return null;
-  return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
-}
-
-export function exportNumber(v: unknown): number | null {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-  const s = String(v ?? '').trim().replace(/,/g, '');
-  if (!s) return null;
-  const n = Number(s.endsWith('%') ? s.slice(0, -1) : s);
-  return Number.isFinite(n) ? (s.endsWith('%') ? n / 100 : n) : null;
-}
-
-class ExportError extends Error {}
-
-export function isExportError(e: unknown): e is Error {
-  return e instanceof ExportError;
-}
-
 interface Table {
   headers: string[];
   rows: unknown[][];
@@ -108,18 +89,8 @@ function need(t: Table | null, sheetName: string, columns: string[]): Table {
   return t;
 }
 
-/** A cell cleaned by its column: dates for date columns, numbers where the value is numeric, else text. */
-function clean(header: string, v: unknown): Value {
-  if (v === null || v === undefined || (typeof v === 'string' && v.trim() === '')) return null;
-  if (/date/i.test(header)) return exportDate(v) ?? String(v).trim();
-  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
-  const s = String(v).trim();
-  return /^-?[\d,]*\.?\d+%?$/.test(s) ? exportNumber(s) : s;
-}
-
 function columnsOf(t: Table, row: unknown[]): Record<string, Value> {
-  return Object.fromEntries(t.headers.map((h, i) => [h, clean(h, row[i])]));
+  return Object.fromEntries(t.headers.map((h, i) => [h, cleanCell(h, row[i])]));
 }
 
 function readDaily(t: Table): DailyRow[] {
@@ -163,7 +134,6 @@ function readPosts(t: Table, skipped: string[]): PostRow[] {
   const campaigns = new Map<string, number>();
   t.rows.forEach((row, i) => {
     const columns = columnsOf(t, row);
-    const num = (h: string) => (typeof columns[h] === 'number' ? (columns[h] as number) : null);
     const type = String(columns[POST.type] ?? '');
     if (type === 'Total') return;
     const link = String(columns[POST.link] ?? '');
@@ -173,7 +143,6 @@ function readPosts(t: Table, skipped: string[]): PostRow[] {
       skipped.push(`All posts, row ${i + 3}: ${!postId ? 'no recognisable post link' : !created ? 'no created date' : `post type "${type}"`}.`);
       return;
     }
-    const text = String(columns[POST.title] ?? '').replace(/\s+/g, ' ').trim();
     let campaignId: string | null = null;
     if (type === 'Sponsored') {
       const base = [postId, columns[POST.campaign], columns['Campaign start date'], columns['Campaign end date']].join('|');
@@ -182,22 +151,24 @@ function readPosts(t: Table, skipped: string[]): PostRow[] {
       campaignId = `${columns[POST.campaign] ?? ''}|${columns['Campaign start date'] ?? ''}|${columns['Campaign end date'] ?? ''}|${seen}`;
     }
     posts.push({
+      ...NO_MEASURES,
       postId,
       link,
-      title: text.length > 160 ? `${text.slice(0, 157)}…` : text,
+      title: titleOf(columns[POST.title]),
       created,
       sponsored: type === 'Sponsored',
       campaign: type === 'Sponsored' ? String(columns[POST.campaign] ?? '') || null : null,
       campaignId,
       contentType: (columns[POST.contentType] as string | null) ?? null,
-      impressions: num(POST.impressions) ?? 0,
-      views: num(POST.views),
-      clicks: num(POST.clicks),
-      reactions: num(POST.likes),
-      comments: num(POST.comments),
-      reposts: num(POST.reposts),
-      follows: num(POST.follows),
-      engagementRate: num(POST.engagementRate),
+      account: null,
+      impressions: num(columns, POST.impressions) ?? 0,
+      views: num(columns, POST.views),
+      clicks: num(columns, POST.clicks),
+      reactions: num(columns, POST.likes),
+      comments: num(columns, POST.comments),
+      reposts: num(columns, POST.reposts),
+      follows: num(columns, POST.follows),
+      engagementRate: num(columns, POST.engagementRate),
       columns
     });
   });
@@ -219,15 +190,14 @@ function readCompetitors(sheet: Sheet, ownNames: string[]): { benchmark: Benchma
   const own = ownNames.map(normalise);
   const benchmark = t.rows.map((row): BenchmarkRow => {
     const columns = columnsOf(t, row);
-    const num = (h: string) => (typeof columns[h] === 'number' ? (columns[h] as number) : null);
     const page = String(columns[COMPETITOR.page] ?? '');
     return {
       page,
       own: own.some((n) => normalise(page).startsWith(n)),
-      totalFollowers: num(COMPETITOR.total),
-      newFollowers: num(COMPETITOR.new),
-      engagements: num(COMPETITOR.engagements),
-      posts: num(COMPETITOR.posts),
+      totalFollowers: num(columns, COMPETITOR.total),
+      newFollowers: num(columns, COMPETITOR.new),
+      engagements: num(columns, COMPETITOR.engagements),
+      posts: num(columns, COMPETITOR.posts),
       columns
     };
   }).filter((b) => b.page);
@@ -248,7 +218,10 @@ export function readLinkedInExport(bytes: Uint8Array, fileName = '', ownNames: s
   const file = linkedInFileOf(sheets);
   if (!file) throw new ExportError('This is not a LinkedIn page analytics export (content, followers, visitors or competitors).');
 
-  const out: CleanedExport = { platform: 'linkedin', file, page: pageFromFileName(fileName), from: '', to: '', posts: [], daily: [], audience: null, benchmark: [], skipped: [] };
+  const out: CleanedExport = {
+    platform: 'linkedin', file, account: pageFromFileName(fileName), from: '', to: '', postFigures: 'lifetime',
+    posts: [], daily: [], audience: null, benchmark: [], totals: null, skipped: [], notes: []
+  };
   let period: { from: string | null; to: string | null } = { from: null, to: null };
   if (file === 'content') {
     const posts = sheetNamed(sheets, 'All posts')!;
@@ -265,7 +238,7 @@ export function readLinkedInExport(bytes: Uint8Array, fileName = '', ownNames: s
     out.audience = readAudience(sheets, main.name, file);
   }
 
-  const dates = [...out.daily.map((d) => d.date), ...out.posts.map((p) => p.created)].sort();
+  const dates = [...out.daily.map((d) => d.date), ...out.posts.map((p) => p.created!)].sort();
   out.from = period.from ?? dates[0] ?? '';
   out.to = period.to ?? dates.at(-1) ?? '';
   if (!out.from || (!out.posts.length && !out.daily.length && !out.benchmark.length)) {
