@@ -3,6 +3,7 @@ import {
   GROUPINGS, METRICS, accountMonths, analyseLinkedIn, brandTable, emkayTable,
   type GroupBy, type Metric
 } from '$lib/analytics/analysis';
+import { buildTables } from '$lib/analytics/tables';
 import { loadAnalyticsUploads } from '$lib/analytics/uploads';
 import { isMonth } from '$lib/calendar/calendar';
 import { loadDataset } from '$lib/dataset/dataset';
@@ -17,7 +18,8 @@ export const load: PageServerLoad = async ({ url }) => {
   const metric = (METRICS.find((m) => m.id === url.searchParams.get('metric'))?.id ?? 'interactionRate') as Metric;
 
   const mine = brand ? uploads.filter((u) => u.brand === brand) : uploads;
-  const analysis = analyseLinkedIn(ds, mine);
+  const tables = buildTables(mine);
+  const analysis = analyseLinkedIn(ds, tables);
   const table = brand ? brandTable(ds, analysis, brand, by, metric) : emkayTable(ds, analysis, metric);
   const monthParam = url.searchParams.get('month');
   const month = isMonth(monthParam) && table.months.includes(monthParam) ? monthParam : (table.months.at(-1) ?? null);
@@ -27,11 +29,11 @@ export const load: PageServerLoad = async ({ url }) => {
     by,
     metric,
     month,
-    hasContent: mine.some((u) => u.kind === 'content'),
+    hasContent: mine.some((u) => u.file === 'content'),
     hasCalendar: ds.brandYears.some((y) => !brand || y.brand === brand),
     asOf: analysis.asOf,
     table,
-    account: brand ? accountMonths(mine, brand, table.months) : [],
+    account: brand ? accountMonths(tables, brand, table.months) : [],
     fixes: analysis.fixes,
     posts: month ? analysis.posts.filter((p) => p.month === month) : []
   };

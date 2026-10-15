@@ -372,7 +372,9 @@ export function readCalendar(sheets: Sheet[], options: ReadOptions = {}): ReadRe
           platforms.push({ platform: p, state: 'published', url });
           const host = hostOf(url);
           const expected = PLATFORM_HOSTS[p];
-          if (expected && !onHost(host, expected)) {
+          if (p === 'LinkedIn' && host === 'lnkd.in') {
+            report('warning', p, 'This is a short LinkedIn link (lnkd.in), which does not say which post it is, so its analytics cannot be matched. Open the post on LinkedIn, click … → Copy link to post, and paste that full link instead.');
+          } else if (expected && !onHost(host, expected)) {
             const actual = Object.entries(PLATFORM_HOSTS).find(([, list]) => list && onHost(host, list))?.[0];
             report('warning', p, actual
               ? `The ${p} column has ${/^[aeiou]/i.test(actual) ? 'an' : 'a'} ${actual} link. Move it to the ${actual} column and paste the ${p} post link here.`

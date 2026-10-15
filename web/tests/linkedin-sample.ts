@@ -1,5 +1,6 @@
 // Made-up LinkedIn exports, laid out exactly like LinkedIn's (sheet names, note rows, headers,
-// US-style dates as text), for the tests.
+// US-style dates as text), for the tests. All written as .xls by xls-writer.ts; the competitor
+// export is .xlsx on LinkedIn, but the reader does not depend on which, so .xls stands in for it.
 
 import { writeXls, type XlsValue } from './xls-writer';
 
@@ -15,7 +16,10 @@ export interface SamplePost {
   created: string;
   title?: string;
   type?: 'Organic' | 'Sponsored' | 'Total';
+  campaign?: string;
+  campaignDates?: [string, string];
   impressions: number;
+  views?: number;
   clicks?: number;
   likes?: number;
   comments?: number;
@@ -25,11 +29,24 @@ export interface SamplePost {
   postsLink?: boolean;
 }
 
+export interface Days {
+  from: string;
+  to: string;
+}
+
 export const postId = (id: number) => `74000000000000000${String(id).padStart(2, '0')}`;
 export const feedLink = (id: number) => `https://www.linkedin.com/feed/update/urn:li:activity:${postId(id)}`;
-const us = (iso: string) => `${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(0, 4)}`;
+export const us = (iso: string) => `${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(0, 4)}`;
 
-export function contentExport(posts: SamplePost[], days: { from: string; to: string }): Uint8Array {
+function eachDay(days: Days, row: (date: string, i: number) => XlsValue[]): XlsValue[][] {
+  const out: XlsValue[][] = [];
+  for (let d = Date.parse(days.from), i = 0; d <= Date.parse(days.to); d += 86400000, i++) {
+    out.push(row(us(new Date(d).toISOString().slice(0, 10)), i));
+  }
+  return out;
+}
+
+export function contentExport(posts: SamplePost[], days: Days, impressionsPerDay = 100): Uint8Array {
   const rows: XlsValue[][] = [
     ['Engagement metrics for individual posts. Created date indicates when your post was created. All dates and times are in UTC.'],
     POST_HEADERS
@@ -40,29 +57,47 @@ export function contentExport(posts: SamplePost[], days: { from: string; to: str
       ? `https://www.linkedin.com/posts/sample-page_some-words-activity-${postId(p.id)}-AbCd`
       : feedLink(p.id);
     rows.push([
-      p.title ?? `Post ${p.id}`, link, p.type ?? 'Organic', null, 'Sample Person', us(p.created), null, null, 'All followers',
-      p.impressions, null, null, clicks, p.impressions ? clicks / p.impressions : 0, likes, comments, reposts, null,
+      p.title ?? `Post ${p.id}`, link, p.type ?? 'Organic', p.campaign ?? null, 'Sample Person', us(p.created),
+      p.campaignDates ? us(p.campaignDates[0]) : null, p.campaignDates ? us(p.campaignDates[1]) : null, 'All followers',
+      p.impressions, p.views ?? null, null, clicks, p.impressions ? clicks / p.impressions : 0, likes, comments, reposts, null,
       p.impressions ? (clicks + likes + comments + reposts) / p.impressions : 0, p.contentType ?? null
     ]);
   }
   const metrics: XlsValue[][] = [
     ['Aggregated engagement metrics for your organic and sponsored'],
-    ['Date', 'Impressions (organic)', 'Impressions (sponsored)', 'Clicks (organic)']
+    ['Date', 'Impressions (organic)', 'Impressions (sponsored)', 'Clicks (organic)'],
+    ...eachDay(days, (date) => [date, impressionsPerDay, 0, 5])
   ];
-  for (let d = Date.parse(days.from); d <= Date.parse(days.to); d += 86400000) {
-    metrics.push([us(new Date(d).toISOString().slice(0, 10)), 100, 0, 5]);
-  }
   return writeXls([{ name: 'Metrics', rows: metrics }, { name: 'All posts', rows }]);
 }
 
-export function followersExport(days: { from: string; to: string }, perDay = 2): Uint8Array {
-  const rows: XlsValue[][] = [['Date', 'Sponsored followers', 'Organic followers', 'Auto-invited followers', 'Total followers']];
-  for (let d = Date.parse(days.from); d <= Date.parse(days.to); d += 86400000) {
-    rows.push([us(new Date(d).toISOString().slice(0, 10)), 0, perDay, 0, perDay]);
-  }
+export function followersExport(days: Days, opts: { organic?: number; sponsored?: number; senior?: number } = {}): Uint8Array {
+  const organic = opts.organic ?? 2, sponsored = opts.sponsored ?? 0;
   return writeXls([
-    { name: 'New followers', rows },
+    {
+      name: 'New followers',
+      rows: [['Date', 'Sponsored followers', 'Organic followers', 'Auto-invited followers', 'Total followers'],
+        ...eachDay(days, (date) => [date, sponsored, organic, 0, organic + sponsored])]
+    },
     { name: 'Location', rows: [['Location', 'Total followers'], ['Mumbai Metropolitan Region, India', 150], ['Greater Delhi Area, India', 40]] },
-    { name: 'Seniority', rows: [['Seniority', 'Total followers'], ['Senior', 120], ['Entry', 70]] }
+    { name: 'Seniority', rows: [['Seniority', 'Total followers'], ['Senior', opts.senior ?? 120], ['Entry', 70]] }
   ]);
+}
+
+export function visitorsExport(days: Days, viewsPerDay = 10): Uint8Array {
+  return writeXls([
+    {
+      name: 'Visitor metrics',
+      rows: [['Date', 'Total page views (desktop)', 'Total page views (mobile)', 'Total page views (total)'],
+        ...eachDay(days, (date) => [date, viewsPerDay / 2, viewsPerDay / 2, viewsPerDay])]
+    },
+    { name: 'Industry', rows: [['Industry', 'Total views'], ['Financial Services', 300], ['Banking', 120]] }
+  ]);
+}
+
+export function competitorsExport(days: Days, pages: [string, number, number, number, number][]): Uint8Array {
+  return writeXls([{
+    name: 'COMPETITORS',
+    rows: [[us(days.from), us(days.to)], ['Page', 'Total Followers', 'New Followers', 'Total post engagements', 'Total posts'], ...pages]
+  }]);
 }

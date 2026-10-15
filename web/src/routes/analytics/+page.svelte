@@ -166,14 +166,14 @@
                 </tr>
               </thead>
               <tbody>
-                {#each data.posts as p (p.brand + p.key + p.sponsored)}
+                {#each data.posts as p (p.brand + p.postId + (p.campaignId ?? ''))}
                   <tr class:muted-row={p.sponsored || !p.settled}>
                     <td class="date">{day(p.created)}</td>
                     {#if !data.brand}<td>{brandById(p.brand)?.short}</td>{/if}
                     <td class="post">
                       <a href={p.link} target="_blank" rel="noopener noreferrer">{p.calendar?.title ?? (p.title || 'No text')}</a>
                       <span class="sub">{where(p)}</span>
-                      {#if p.sponsored}<span class="tag">Sponsored: not counted</span>{/if}
+                      {#if p.sponsored}<span class="tag">Sponsored{p.campaign ? ` (${p.campaign})` : ''}: not counted</span>{/if}
                       {#if !p.settled}<span class="tag">Still collecting: {p.ageDays} {p.ageDays === 1 ? 'day' : 'days'} old</span>{/if}
                       {#if p.maybe.length}<span class="tag">Might be “{p.maybe[0].title}” in the calendar</span>{/if}
                     </td>
@@ -193,19 +193,20 @@
       </section>
     {/if}
 
-    {#if data.brand && data.account.some((a) => a.newFollowers !== null || a.pageViews !== null)}
+    {#if data.brand && data.account.some((a) => a.organicFollowers !== null || a.pageViews !== null)}
       <section>
         <h2>The page as a whole</h2>
         <div class="table-wrap">
           <table class="account">
             <thead>
-              <tr><th>Month</th><th class="num">New followers</th><th class="num">Page views</th><th class="num">Impressions (organic)</th></tr>
+              <tr><th>Month</th><th class="num">New followers (organic)</th><th class="num">New followers (paid)</th><th class="num">Page views</th><th class="num">Impressions (organic)</th></tr>
             </thead>
             <tbody>
               {#each data.account as a}
                 <tr>
                   <td>{monthLabel(a.month)}{#if !a.complete}<span class="sub">to date</span>{/if}</td>
-                  <td class="num">{count(a.newFollowers)}</td>
+                  <td class="num">{count(a.organicFollowers)}</td>
+                  <td class="num paid">{count(a.sponsoredFollowers)}</td>
                   <td class="num">{count(a.pageViews)}</td>
                   <td class="num">{count(a.impressions)}</td>
                 </tr>
@@ -213,7 +214,7 @@
             </tbody>
           </table>
         </div>
-        <p class="note">Totals per month from the followers, visitors and content exports. Upload all three to fill every column.</p>
+        <p class="note">Totals per month from the followers, visitors and content exports. Paid followers came from sponsored (boosted) posts, so they are kept apart from organic growth.</p>
       </section>
     {/if}
   {/if}
@@ -271,6 +272,7 @@
   .posts .post a { font-weight: 600; }
   .posts .date { white-space: nowrap; }
   .posts tr.muted-row td { color: var(--text-muted); }
+  .account .paid { color: var(--text-muted); }
 
   @media (max-width: 640px) {
     .seg { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: 100%; min-width: 0; }

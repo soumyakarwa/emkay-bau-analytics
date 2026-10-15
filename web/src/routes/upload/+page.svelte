@@ -2,6 +2,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { BRANDS, brandById } from '$lib/brands';
   import type { FrameworkChange } from '$lib/dataset/changes';
+  import type { LinkedInFile } from '$lib/analytics/rows';
   import type { AnalyticsUploadInfo } from '$lib/analytics/uploads';
   import type { UploadInfo } from '$lib/dataset/uploads';
   import type { Summary } from '$lib/workbook/summary';
@@ -16,7 +17,7 @@
     contentHash: string;
     fileName: string;
     upload: AnalyticsUploadInfo | null;
-    export: { kind: 'content' | 'followers' | 'visitors'; page: string | null; from: string; to: string; posts: number; sponsored: number; days: number } | null;
+    export: { file: LinkedInFile; page: string | null; from: string; to: string; posts: number; sponsored: number; days: number; audience: number; peers: number } | null;
   }
 
   interface CalendarResult {
@@ -32,7 +33,10 @@
   }
 
   type Result = CalendarResult | LinkedInResult;
-  const KIND_LABEL = { content: 'LinkedIn content (posts)', followers: 'LinkedIn followers', visitors: 'LinkedIn visitors' };
+  const KIND_LABEL: Record<LinkedInFile, string> = {
+    content: 'LinkedIn content (posts)', followers: 'LinkedIn followers', visitors: 'LinkedIn visitors', competitors: 'LinkedIn competitors'
+  };
+  const ago = (iso: string) => Math.round((Date.parse(new Date().toISOString().slice(0, 10)) - Date.parse(iso)) / 86400000);
   const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
   const allowed = $derived(BRANDS.filter((b) => data.uploadBrands.includes(b.id)));
@@ -170,27 +174,34 @@
           {#if result.upload}({when(result.upload.uploadedAt)}{result.upload.uploadedBy ? `, by ${result.upload.uploadedBy}` : ''}){/if}.
         </p>
       {:else if result.status === 'ready'}
-        <p class="banner good"><strong>Ready to publish</strong> the {x ? KIND_LABEL[x.kind] : ''} export for {brandName(brand)}.</p>
+        <p class="banner good"><strong>Ready to publish</strong> the {x ? KIND_LABEL[x.file] : ''} export for {brandName(brand)}.</p>
       {:else}
         <p class="banner good">
-          <strong>Published.</strong> The {x ? KIND_LABEL[x.kind] : ''} figures for {brandName(brand)} are added.
+          <strong>Published.</strong> The {x ? KIND_LABEL[x.file] : ''} figures for {brandName(brand)} are added.
           <a href="/analytics?brand={brand}">See the analytics</a>
         </p>
       {/if}
       {#if x}
         <dl class="facts">
-          <dt>File</dt><dd>{KIND_LABEL[x.kind]}{x.page ? ` · LinkedIn page "${x.page}"` : ''}</dd>
+          <dt>File</dt><dd>{KIND_LABEL[x.file]}{x.page ? ` · LinkedIn page "${x.page}"` : ''}</dd>
           <dt>Covers</dt><dd>{day(x.from)} to {day(x.to)}</dd>
-          {#if x.kind === 'content'}
-            <dt>Posts</dt><dd>{x.posts}{x.sponsored ? ` (${x.sponsored} sponsored, kept separate)` : ''}</dd>
+          {#if x.file === 'content'}
+            <dt>Posts</dt><dd>{x.posts}{x.sponsored ? `, plus ${x.sponsored} sponsored ${x.sponsored === 1 ? 'row' : 'rows'} (kept separate)` : ''}</dd>
+            <dt>Days</dt><dd>{x.days} days of page figures</dd>
+          {:else if x.file === 'competitors'}
+            <dt>Peers</dt><dd>{x.peers} pages compared</dd>
           {:else}
             <dt>Days</dt><dd>{x.days}</dd>
+            <dt>Audience</dt><dd>{x.audience} breakdown rows ({x.file === 'followers' ? 'who follows, on ' + day(x.to) : 'who visited over the period'})</dd>
           {/if}
         </dl>
         <p class="note">
           Figures are as of {day(x.to)}. Newer exports update older posts' figures; every upload is kept.
-          {#if x.kind === 'content'}Each post is matched to the calendar by the link in its LinkedIn column.{/if}
+          {#if x.file === 'content'}Each post is matched to the calendar by the link in its LinkedIn column.{/if}
         </p>
+        {#if result.upload?.warnings.length}
+          <ul class="warn-list">{#each result.upload.warnings as w}<li>{w}</li>{/each}</ul>
+        {/if}
       {/if}
       <div class="actions">
         {#if result.status === 'ready'}
@@ -316,6 +327,34 @@
     {/if}
   </section>
 
+  {#if data.coverage}
+    <section class="history">
+      <h2>LinkedIn files · {brandName(brand)}</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>File</th><th>Figures up to</th><th>Covered since</th><th class="num">Uploads</th><th>Status</th></tr></thead>
+          <tbody>
+            {#each data.coverage as c}
+              <tr>
+                <td>{c.label}{#if c.optional}<span class="sub">optional</span>{/if}</td>
+                <td>{c.to ? day(c.to) : '–'}</td>
+                <td>{c.from ? day(c.from) : '–'}</td>
+                <td class="num">{c.uploads}</td>
+                <td>
+                  {#if !c.uploads}<span class="sub">{c.optional ? 'Not used yet' : `Not uploaded yet: ${c.help}`}</span>
+                  {:else if c.gaps.length}⚠ Gap: {c.gaps.map((g) => `${day(g.from)} – ${day(g.to)}`).join(', ')}
+                  {:else if c.to && ago(c.to) > 40}⚠ Over a month old: time for a new export
+                  {:else}Up to date{/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Each month, export the last 365 days of Content, Followers and Visitors (and Competitors, if set up) and upload them here.</p>
+    </section>
+  {/if}
+
   {#if data.analyticsHistory.length}
     <section class="history">
       <h2>Analytics uploads{brand ? ` · ${brandName(brand)}` : ''}</h2>
@@ -329,11 +368,11 @@
               <tr>
                 <td>{when(u.uploadedAt)}</td>
                 {#if !brand}<td>{brandName(u.brand)}</td>{/if}
-                <td>{KIND_LABEL[u.kind]}</td>
+                <td>{KIND_LABEL[u.file]}{#if u.warnings.length}<span class="sub" title={u.warnings.join('\n')}>⚠ {u.warnings.length}</span>{/if}</td>
                 <td>{day(u.from)} – {day(u.to)}</td>
                 <td>{u.uploadedBy ?? '—'}</td>
                 <td class="file">{u.fileName}</td>
-                <td class="num">{u.kind === 'content' ? u.posts : '–'}</td>
+                <td class="num">{u.file === 'content' ? u.counts.posts : '–'}</td>
               </tr>
             {/each}
           </tbody>
@@ -372,6 +411,9 @@
   .facts dt { color: var(--text-muted); }
   .facts dd { margin: 0; }
   .changes { margin: 6px 0; padding-left: 18px; }
+  .warn-list { margin: 8px 0; padding-left: 18px; color: var(--text-secondary); font-size: 13px; }
+  .warn-list li { margin: 4px 0; }
+  .sub { display: block; font-size: 11px; color: var(--text-muted); }
   .changes li { margin: 4px 0; }
   .changes li.moved { font-weight: 600; }
   .issues { list-style: none; margin: 0; padding: 0; }

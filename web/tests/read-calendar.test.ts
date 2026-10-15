@@ -152,6 +152,12 @@ describe('warnings', () => {
     expect(sub).toEqual([]);
   });
 
+  it('a short LinkedIn link, which cannot be matched to the analytics', () => {
+    const r = rowOf(base, 'Aug 2026', 'Three myths');
+    const issues = read(patch(base, 'Aug 2026', { [`L${r}`]: { value: 'https://lnkd.in/p/dYxWBdqV', url: null } })).issues;
+    expect(only(issues).message).toMatch(/^This is a short LinkedIn link \(lnkd\.in\).*Copy link to post/);
+  });
+
   it('a link to a file on one computer', () => {
     const r = rowOf(base, 'Aug 2026', 'Three myths');
     const issue = only(read(patch(base, 'Aug 2026', { [`Q${r}`]: { value: '../AppData/Roaming/Microsoft/Excel/copy.docx', url: null } })).issues);

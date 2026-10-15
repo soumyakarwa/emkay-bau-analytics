@@ -44,28 +44,64 @@ the brand stays selected when you move between pages.
 
 ## LinkedIn analytics
 
-Once a month, per brand: on LinkedIn, open the page's admin view, go to Analytics, and export
-**Content**, **Followers** and **Visitors** for the last 365 days. Upload the three files on the
-Upload page exactly as LinkedIn gives them (.xls); the site tells them apart from workbooks.
-Every upload is kept as a snapshot of the figures on its export day, and the newest figures win.
-A file from a page known to be another brand's is refused (`LINKEDIN_PAGES` in
-`src/lib/analytics/uploads.ts`), and an identical re-upload publishes nothing.
+### Monthly routine
 
-The Analytics page (`/analytics?brand=im`) then shows, month by month:
+Once a month, per brand: on LinkedIn, open the page's admin view → **Analytics**, and on each
+of the **Content**, **Followers** and **Visitors** tabs click **Export** for the last 365 days.
+If the page tracks competitors, also export **Competitors** (optional; only Emkay Global so far).
+Upload the files on the Upload page exactly as LinkedIn gives them (.xls, or .xlsx for
+competitors); the site tells them apart from calendar workbooks. The Upload page shows, per
+brand, which files are in, how recent they are, and any gaps.
 
-- the **median per post** by comms task, pillar, peg or format, for BAU posts. Posts are matched
-  to the calendar by the post ID in the link in the LinkedIn column;
-- totals for all BAU posts, posts in the calendar that are not BAU, **Outside BAU** (on LinkedIn
-  but not in the calendar), posts from before the brand's BAU start (a baseline), and all posts;
-- **links to fix** in the workbook: a wrong link, a published post with no link (with the
-  LinkedIn posts from the same days that it probably is), or a link LinkedIn's export does not have;
-- each month's posts with their figures, and the page's new followers, page views and impressions.
+From the terminal (same checks as the Upload page):
 
-Only organic posts at least 7 days old on the export day are counted; sponsored posts and newer
-posts are listed but kept out. The default measure is the **interaction rate**: reactions,
-comments and reposts per impression. LinkedIn's own engagement rate also counts clicks, and on
-carousels (document posts) every page swipe is a click, so it puts carousels at 70-120% against
-3-12% for other formats: it compares formats rather than pegs. It is still there to pick.
+```bash
+npm run publish-analytics -- --for im emkayinvestmentmanagers_content_1791966587478.xls …
+npm run show-analytics -- --brand im              # what each table holds
+npm run show-analytics -- --brand im --post 7400000000000000002  # one post's figures over time
+```
+
+### The pipeline
+
+1. **Keep the original.** Every upload is saved once and never changed: the original file, and
+   its cleaned rows as JSON (`analytics/<brand>/linkedin/<file>/<id>.json`).
+2. **Clean it** (`src/lib/analytics/linkedin.ts`). Every column is kept. The header row is found
+   by name (some sheets have a note line above it); US-style dates (`10/12/2026` is 12 October)
+   become `2026-10-12`, with post dates left in UTC as LinkedIn gives them; numbers become
+   numbers; blanks stay blank, never 0 ("Views" only exists for videos); post IDs come from the
+   links; LinkedIn's "Total" rows are dropped (organic + sponsored, recalculable). Sponsored rows
+   are kept per campaign, as one post can be boosted several times, even by campaigns that share
+   a name.
+3. **Combine into four tables** (`src/lib/analytics/tables.ts`), rebuilt from the uploads
+   whenever they are needed and never saved:
+
+   | Table | From | How uploads combine |
+   | --- | --- | --- |
+   | **Posts** | Content: All posts | Every snapshot kept, tagged with its export day. The pages use each post's newest figures; a post's history shows how it grew. |
+   | **Daily** | Content: Metrics; Followers; Visitors | One set of figures per day: the newest export covering that day wins, and older exports keep the days newer ones no longer reach, so history grows past LinkedIn's one year. |
+   | **Audience** | Followers and Visitors breakdowns | Every snapshot kept: followers as of the export day, visitors over the export's period. |
+   | **Benchmark** | Competitors (optional) | One set per period; a re-export of the same period replaces it. |
+
+4. **Check every upload.** Refused: not a LinkedIn export, a missing column, or a file for
+   another brand's page (`LINKEDIN_PAGES`, or the brand's own row in a competitor export).
+   Skipped: an identical re-upload. Warned: a gap since the last upload, an export older than
+   one already in, rows left out.
+
+When the cleaning rules change, `ANALYTICS_READER_VERSION` goes up and older uploads are cleaned
+again from their original files as they are loaded.
+
+### The Analytics page (a first version, to be redesigned)
+
+`/analytics?brand=im` shows, month by month, the **median per post** by comms task, pillar, peg
+or format for BAU posts (matched to the calendar by the post ID in the LinkedIn column's link);
+totals for all BAU posts, posts in the calendar that are not BAU, **Outside BAU**, posts from
+before the brand's BAU start, and all posts; **links to fix** in the workbook; each month's
+posts; and the page's organic and paid new followers, page views and impressions.
+
+Only organic posts at least 7 days old on the export day are counted. The default measure is the
+**interaction rate**: reactions, comments and reposts per impression. LinkedIn's own engagement
+rate also counts clicks, and on carousels every page swipe is a click, so it puts carousels at
+70-120% against 3-12% for other formats: it compares formats rather than pegs.
 
 ## Passwords
 
@@ -140,8 +176,10 @@ npm run show-emkay -- --brand im --history
 | `src/lib/dataset/dataset.ts` | All of Emkay: the latest upload of every brand and year, combined. |
 | `src/lib/dataset/store.ts`, `src/lib/server/folder-store.ts` | Where uploads are kept: a local folder now, Vercel Blob later. |
 | `src/lib/calendar/` | The calendar: month grid, colours, and the post details panel. |
-| `src/lib/analytics/linkedin.ts` | Reads LinkedIn's content, followers and visitors exports. |
-| `src/lib/analytics/uploads.ts` | Keeps every analytics export, like the workbooks. |
+| `src/lib/analytics/rows.ts` | The cleaned rows every export becomes: posts, daily, audience, benchmark. |
+| `src/lib/analytics/linkedin.ts` | Reads and cleans LinkedIn's content, followers, visitors and competitors exports. |
+| `src/lib/analytics/uploads.ts` | Saves each export once (original + cleaned rows), checks it, and tracks coverage. |
+| `src/lib/analytics/tables.ts` | Combines every upload into the four tables. |
 | `src/lib/analytics/analysis.ts` | Matches posts to the calendar and builds the month-by-month medians. |
 | `src/routes/` | The pages: calendar, analytics, upload, sign-in. |
 | `src/app.css` | Emkay brand colours and Open Sans, from the Emkay guidebook. |

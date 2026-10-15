@@ -15,8 +15,8 @@ import { BRANDS, type BrandId } from '../brands';
 import { shiftMonth } from '../calendar/calendar';
 import type { Dataset, DatasetPost } from '../dataset/dataset';
 import { DROPPED, PUBLISHED, normalise } from '../workbook/contract';
-import { linkedInKey, type LinkedInPost } from './linkedin';
-import type { AnalyticsUpload } from './uploads';
+import { isShortLinkedInLink, linkedInKey } from './linkedin';
+import { latestPosts, monthlyTotals, type PostSnapshot, type Tables } from './tables';
 
 export const SETTLE_DAYS = 7;
 
@@ -53,10 +53,7 @@ export interface CalendarRef {
   row: number;
 }
 
-export interface AnalysedPost extends LinkedInPost {
-  brand: BrandId;
-  /** The export day these figures are from. */
-  asOf: string;
+export interface AnalysedPost extends PostSnapshot {
   ageDays: number;
   /** Old enough on the export day to be compared (see SETTLE_DAYS). */
   settled: boolean;
@@ -97,23 +94,14 @@ const days = (from: string, to: string) => Math.round((Date.parse(to) - Date.par
 const ref = (p: DatasetPost): CalendarRef => ({ key: p.key, title: p.title, date: p.date, sheet: p.source.sheet, row: p.source.row });
 const isDropped = (p: DatasetPost) => !!p.status && normalise(p.status) === normalise(DROPPED);
 
-/** The newest figures for every post across all content uploads (later exports win). */
-export function latestPosts(uploads: AnalyticsUpload[]): Map<string, { post: LinkedInPost; asOf: string; brand: BrandId }> {
-  const out = new Map<string, { post: LinkedInPost; asOf: string; brand: BrandId }>();
-  const ordered = uploads.filter((u) => u.kind === 'content').sort((a, b) => a.to.localeCompare(b.to) || a.uploadedAt.localeCompare(b.uploadedAt));
-  for (const u of ordered) {
-    for (const p of u.data.posts) out.set(`${u.brand}|${p.key}|${p.sponsored ? 's' : 'o'}`, { post: p, asOf: u.to, brand: u.brand });
-  }
-  return out;
-}
-
-export function analyseLinkedIn(ds: Dataset, uploads: AnalyticsUpload[]): LinkedInAnalysis {
-  const latest = latestPosts(uploads);
-  const asOf = [...latest.values()].map((x) => x.asOf).sort().at(-1) ?? null;
+export function analyseLinkedIn(ds: Dataset, tables: Tables): LinkedInAnalysis {
+  const latest = latestPosts(tables.posts);
+  const asOf = latest.map((x) => x.asOf).sort().at(-1) ?? null;
+  // The days the content exports cover, per brand (from their daily figures).
   const covered = new Map<BrandId, { from: string; to: string }>();
-  for (const u of uploads.filter((x) => x.kind === 'content')) {
-    const c = covered.get(u.brand);
-    covered.set(u.brand, { from: c && c.from < u.from ? c.from : u.from, to: c && c.to > u.to ? c.to : u.to });
+  for (const [brand, files] of tables.daily) {
+    const days = [...(files.get('content')?.keys() ?? [])].sort();
+    if (days.length) covered.set(brand, { from: days[0], to: days.at(-1)! });
   }
 
   // Calendar posts by the LinkedIn post ID in their LinkedIn column.
@@ -131,7 +119,9 @@ export function analyseLinkedIn(ds: Dataset, uploads: AnalyticsUpload[]): Linked
       if (key) byKey.set(`${p.brand}|${key}`, p);
       else if (covered.has(p.brand)) {
         fixes.push({ brand: p.brand, post: ref(p), problem: 'not-linkedin', candidates: [],
-          message: `The LinkedIn column has a link that is not a LinkedIn post: ${entry.url}` });
+          message: isShortLinkedInLink(entry.url)
+            ? `The LinkedIn column has a short link (${entry.url}), which does not say which post it is. Paste the full post link.`
+            : `The LinkedIn column has a link that is not a LinkedIn post: ${entry.url}` });
         withoutLink.push(p);
       }
     } else if (p.status && normalise(p.status) === normalise(PUBLISHED)) {
@@ -146,8 +136,9 @@ export function analyseLinkedIn(ds: Dataset, uploads: AnalyticsUpload[]): Linked
   }
 
   const posts: AnalysedPost[] = [];
-  for (const { post, asOf: postAsOf, brand } of latest.values()) {
-    const c = byKey.get(`${brand}|${post.key}`);
+  for (const post of latest) {
+    const { brand, asOf: postAsOf } = post;
+    const c = byKey.get(`${brand}|${post.postId}`);
     const month = c ? c.month : post.created.slice(0, 7);
     const start = bauStart.get(brand);
     const ageDays = days(post.created, postAsOf);
@@ -157,11 +148,9 @@ export function analyseLinkedIn(ds: Dataset, uploads: AnalyticsUpload[]): Linked
       : null;
     posts.push({
       ...post,
-      brand,
-      asOf: postAsOf,
       ageDays,
       settled: ageDays >= SETTLE_DAYS,
-      interactionRate: post.impressions > 0 ? (post.likes + post.comments + post.reposts) / post.impressions : null,
+      interactionRate: post.impressions > 0 ? ((post.reactions ?? 0) + (post.comments ?? 0) + (post.reposts ?? 0)) / post.impressions : null,
       month,
       group: (c ? c.beforeBauStart : !!start && month < start) ? 'before-bau'
         : !c ? 'outside' : c.peg && c.countsAsBau ? 'bau' : 'not-bau',
@@ -186,7 +175,7 @@ export function analyseLinkedIn(ds: Dataset, uploads: AnalyticsUpload[]): Linked
   }
 
   // Calendar links that LinkedIn's export does not have, although the export covers that day.
-  const exported = new Set(posts.map((x) => `${x.brand}|${x.key}`));
+  const exported = new Set(posts.map((x) => `${x.brand}|${x.postId}`));
   for (const [k, p] of byKey) {
     const range = covered.get(p.brand);
     if (!range || exported.has(k) || p.date < range.from || days(p.date, range.to) < 1) continue;
@@ -324,37 +313,28 @@ export interface AccountMonth {
   month: string;
   /** False for the latest month while it is still running. */
   complete: boolean;
-  newFollowers: number | null;
+  /** New followers who followed of their own accord. */
+  organicFollowers: number | null;
+  /** New followers from paid (sponsored) content, kept apart. */
+  sponsoredFollowers: number | null;
   pageViews: number | null;
   impressions: number | null;
 }
 
-/** Account-level totals per month, from the daily figures of the newest export of each kind. */
-export function accountMonths(uploads: AnalyticsUpload[], brand: BrandId, months: string[]): AccountMonth[] {
-  const daily = (kind: AnalyticsUpload['kind'], column: string) => {
-    const byDate = new Map<string, number>();
-    const ordered = uploads.filter((u) => u.brand === brand && u.kind === kind).sort((a, b) => a.to.localeCompare(b.to));
-    for (const u of ordered) for (const d of u.data.daily) if (column in d.values) byDate.set(d.date, d.values[column]);
-    return byDate;
-  };
-  const sources = {
-    newFollowers: daily('followers', 'Total followers'),
-    pageViews: daily('visitors', 'Total page views (total)'),
-    impressions: daily('content', 'Impressions (organic)')
-  };
-  const lastDay = [...Object.values(sources)].flatMap((m) => [...m.keys()]).sort().at(-1) ?? '';
-  const sum = (m: Map<string, number>, month: string) => {
-    const list = [...m.entries()].filter(([d]) => d.startsWith(month));
-    return list.length ? list.reduce((a, [, v]) => a + v, 0) : null;
-  };
-  return months.map((month) => {
-    const end = shiftMonth(month, 1);
-    return {
-      month,
-      complete: days(lastDay, `${end}-01`) <= 1,
-      newFollowers: sum(sources.newFollowers, month),
-      pageViews: sum(sources.pageViews, month),
-      impressions: sum(sources.impressions, month)
-    };
-  });
+/** Account-level totals per month, from the daily table. */
+export function accountMonths(tables: Tables, brand: BrandId, months: string[]): AccountMonth[] {
+  const organic = monthlyTotals(tables, brand, 'followers', 'Organic followers');
+  const sponsored = monthlyTotals(tables, brand, 'followers', 'Sponsored followers');
+  const views = monthlyTotals(tables, brand, 'visitors', 'Total page views (total)');
+  const impressions = monthlyTotals(tables, brand, 'content', 'Impressions (organic)');
+  const files = tables.daily.get(brand);
+  const lastDay = [...(files?.values() ?? [])].flatMap((m) => [...m.keys()]).sort().at(-1) ?? '';
+  return months.map((month) => ({
+    month,
+    complete: days(lastDay, `${shiftMonth(month, 1)}-01`) <= 1,
+    organicFollowers: organic.get(month) ?? null,
+    sponsoredFollowers: sponsored.get(month) ?? null,
+    pageViews: views.get(month) ?? null,
+    impressions: impressions.get(month) ?? null
+  }));
 }

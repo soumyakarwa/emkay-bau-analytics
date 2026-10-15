@@ -5,7 +5,7 @@
 
 import { error, json } from '@sveltejs/kit';
 import { brandById, type BrandId } from '$lib/brands';
-import { looksLikeLinkedIn } from '$lib/analytics/linkedin';
+import { linkedInFileOf } from '$lib/analytics/linkedin';
 import { publishAnalyticsFile } from '$lib/analytics/uploads';
 import { publishFile, sha256 } from '$lib/dataset/uploads';
 import { getStore } from '$lib/server/data';
@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   let linkedIn = isXls(bytes);
   if (!linkedIn) {
     try {
-      linkedIn = looksLikeLinkedIn(readXlsx(bytes));
+      linkedIn = linkedInFileOf(readXlsx(bytes)) !== null;
     } catch {
       /* not readable as .xlsx: the calendar reader reports it */
     }
@@ -64,13 +64,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       upload: r.upload,
       export: r.data
         ? {
-            kind: r.data.kind,
+            file: r.data.file,
             page: r.data.page,
             from: r.data.from,
             to: r.data.to,
-            posts: r.data.posts.length,
+            posts: r.data.posts.filter((p) => !p.sponsored).length,
             sponsored: r.data.posts.filter((p) => p.sponsored).length,
-            days: r.data.daily.length
+            days: r.data.daily.length,
+            audience: r.data.audience?.rows.length ?? 0,
+            peers: r.data.benchmark.filter((b) => !b.own).length
           }
         : null
     });

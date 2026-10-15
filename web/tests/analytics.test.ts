@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import {
   accountMonths, analyseLinkedIn, brandTable, emkayTable, median, monthsToShow, type AnalysedPost
 } from '../src/lib/analytics/analysis';
+import { buildTables } from '../src/lib/analytics/tables';
 import { loadAnalyticsUploads, publishAnalyticsFile } from '../src/lib/analytics/uploads';
 import { loadDataset, type Dataset } from '../src/lib/dataset/dataset';
 import { memoryStore, type Store } from '../src/lib/dataset/store';
@@ -49,11 +50,12 @@ async function setUp(opts: { sheets?: Sheet[]; posts?: SamplePost[]; days?: { fr
 async function analyse(opts?: Parameters<typeof setUp>[0]) {
   const { store, ds } = await setUp(opts);
   const uploads = await loadAnalyticsUploads(store);
-  return { ds, uploads, a: analyseLinkedIn(ds, uploads) };
+  const tables = buildTables(uploads);
+  return { ds, uploads, tables, a: analyseLinkedIn(ds, tables) };
 }
 
 const byId = (posts: AnalysedPost[], id: number, sponsored = false) =>
-  posts.find((p) => p.key === `activity:${postId(id)}` && p.sponsored === sponsored)!;
+  posts.find((p) => p.postId === `activity:${postId(id)}` && p.sponsored === sponsored)!;
 
 describe('matching LinkedIn posts to the calendar', () => {
   it('puts every post in its group by the link in the LinkedIn column', async () => {
@@ -87,7 +89,7 @@ describe('matching LinkedIn posts to the calendar', () => {
     const { store, ds } = await setUp();
     const later = contentExport([{ id: 2, created: '2026-08-03', impressions: 900, likes: 30 }], { from: '2026-08-01', to: '2026-11-05' });
     await publishAnalyticsFile(store, later, { fileName: 'page_content_2.xls', forBrand: 'im' });
-    const a = analyseLinkedIn(ds, await loadAnalyticsUploads(store));
+    const a = analyseLinkedIn(ds, buildTables(await loadAnalyticsUploads(store)));
     expect(byId(a.posts, 2)).toMatchObject({ impressions: 900, asOf: '2026-11-05' });
     expect(byId(a.posts, 90)).toMatchObject({ impressions: 1000, asOf: '2026-10-12' });
     expect(a.asOf).toBe('2026-11-05');
@@ -183,12 +185,12 @@ describe('comparing month by month', () => {
 describe('the page as a whole', () => {
   it('adds up the daily figures per month, marking the month still running', async () => {
     const { store } = await setUp();
-    await publishAnalyticsFile(store, followersExport({ from: '2026-09-01', to: '2026-10-12' }, 3), { fileName: 'page_followers_1.xls', forBrand: 'im' });
-    const months = accountMonths(await loadAnalyticsUploads(store), 'im', ['2026-08', '2026-09', '2026-10']);
+    await publishAnalyticsFile(store, followersExport({ from: '2026-09-01', to: '2026-10-12' }, { organic: 3, sponsored: 1 }), { fileName: 'page_followers_1.xls', forBrand: 'im' });
+    const months = accountMonths(buildTables(await loadAnalyticsUploads(store)), 'im', ['2026-08', '2026-09', '2026-10']);
     expect(months).toEqual([
-      { month: '2026-08', complete: true, newFollowers: null, pageViews: null, impressions: 3100 },
-      { month: '2026-09', complete: true, newFollowers: 90, pageViews: null, impressions: 3000 },
-      { month: '2026-10', complete: false, newFollowers: 36, pageViews: null, impressions: 1200 }
+      { month: '2026-08', complete: true, organicFollowers: null, sponsoredFollowers: null, pageViews: null, impressions: 3100 },
+      { month: '2026-09', complete: true, organicFollowers: 90, sponsoredFollowers: 30, pageViews: null, impressions: 3000 },
+      { month: '2026-10', complete: false, organicFollowers: 36, sponsoredFollowers: 12, pageViews: null, impressions: 1200 }
     ]);
   });
 });
