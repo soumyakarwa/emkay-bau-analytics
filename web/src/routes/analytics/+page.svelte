@@ -56,7 +56,7 @@
     <p class="banner neutral">
       No LinkedIn content export uploaded{data.brand ? ` for ${brandName(data.brand)}` : ''} yet.
       On LinkedIn, open the page's admin view, then Analytics → Content → Export, and upload the file on the
-      <a href="/upload{data.brand ? `?brand=${data.brand}` : ''}">Upload page</a>.
+      <a href="/upload?section=analytics{data.brand ? `&brand=${data.brand}` : ''}">Upload page, under LinkedIn analytics</a>.
     </p>
   {:else}
     <p class="lede">

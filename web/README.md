@@ -32,8 +32,9 @@ The site reads the data folder `web/.data`; set `BAU_DATA_DIR` to read another o
 
 ## Upload a workbook
 
-Open http://localhost:5173/upload (or click Upload in the header). Pick the brand, fill in
-"Uploaded by", choose the .xlsx and click **Check file**. The page shows the workbook's BAU
+Open http://localhost:5173/upload (or click Upload in the header). Pick the brand and fill in
+"Uploaded by" once; the page has two sections, **Calendar workbook** and **LinkedIn analytics**.
+Under Calendar workbook, choose the .xlsx and click **Check workbook**. The page shows the workbook's BAU
 mix, the framework changes since the last upload, and its problems: blocking ones first, then
 the rest grouped by person. If nothing is blocking, **Publish** makes it live. A file whose
 Brand cell is another brand's is refused, and an identical re-upload publishes nothing. The
@@ -49,9 +50,12 @@ the brand stays selected when you move between pages.
 Once a month, per brand: on LinkedIn, open the page's admin view → **Analytics**, and on each
 of the **Content**, **Followers** and **Visitors** tabs click **Export** for the last 365 days.
 If the page tracks competitors, also export **Competitors** (optional; only Emkay Global so far).
-Upload the files on the Upload page exactly as LinkedIn gives them (.xls, or .xlsx for
-competitors); the site tells them apart from calendar workbooks. The Upload page shows, per
-brand, which files are in, how recent they are, and any gaps.
+On the Upload page, under **LinkedIn analytics**, choose (or drop) all of the month's files at
+once, exactly as LinkedIn gives them (.xls, or .xlsx for competitors). Each file is checked on
+its own; **Publish all ready files** publishes those that passed and skips the rest, listing
+why (another brand's page, already uploaded, chosen twice, not a LinkedIn export). A file put in
+the wrong section is pointed to the right one. The section also shows which of the brand's
+files are in, how recent they are, and any gaps.
 
 From the terminal (same checks as the Upload page):
 

@@ -16,6 +16,7 @@ export const load: PageServerLoad = async ({ url }) => {
   for (const u of [...history].reverse()) latest.set(`${u.brand}|${u.fy}`, u.id);
   return {
     brand,
+    section: url.searchParams.get('section') === 'analytics' ? ('analytics' as const) : ('calendar' as const),
     team,
     history: history.slice(0, 30).map((u) => ({ ...u, live: latest.get(`${u.brand}|${u.fy}`) === u.id })),
     analyticsHistory: analytics.slice().reverse().slice(0, 30),

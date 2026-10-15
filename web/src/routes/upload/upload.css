@@ -1,0 +1,48 @@
+/* Shared by the upload page and its two sections. Scoped to .upload-page. */
+
+.upload-page { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+.upload-page h1 { margin: 0 0 4px; font-size: 24px; color: var(--band); }
+.upload-page .lede { margin: 0 0 20px; color: var(--text-secondary); }
+.upload-page h2 { font-size: 16px; margin: 24px 0 8px; }
+.upload-page .card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+.upload-page form.card { display: grid; gap: 14px; }
+.upload-page label { display: grid; gap: 6px; font-weight: 600; }
+.upload-page label span { font-size: 13px; color: var(--text-secondary); }
+.upload-page select, .upload-page input[type='text'], .upload-page input[type='file'] { font: inherit; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-1); width: 100%; }
+.upload-page .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.upload-page button { padding: 9px 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); font-weight: 600; cursor: pointer; }
+.upload-page button.primary { background: var(--growth-orange); border-color: var(--growth-orange); color: var(--text-primary); }
+.upload-page button:disabled { opacity: 0.55; cursor: not-allowed; }
+.upload-page .banner { margin: 0 0 8px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid; }
+.upload-page .banner.good { background: color-mix(in srgb, var(--investment-pine) 9%, var(--surface-2)); border-color: color-mix(in srgb, var(--investment-pine) 40%, transparent); }
+.upload-page .banner.neutral { background: var(--weekend); border-color: var(--border); }
+.upload-page .banner.critical { background: #fbeaea; border-color: #d03b3b; color: #5c1515; }
+.upload-page table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.upload-page th { text-align: left; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border); padding: 6px 8px; }
+.upload-page td { padding: 6px 8px; border-bottom: 1px solid var(--weekend); }
+.upload-page .num { text-align: right; font-variant-numeric: tabular-nums; }
+.upload-page .note { color: var(--text-muted); font-size: 13px; margin: 6px 0; }
+.upload-page .facts { display: grid; grid-template-columns: 90px 1fr; gap: 6px 12px; margin: 12px 0 4px; font-size: 14px; }
+.upload-page .facts dt { color: var(--text-muted); }
+.upload-page .facts dd { margin: 0; }
+.upload-page .changes { margin: 6px 0; padding-left: 18px; }
+.upload-page .warn-list { margin: 8px 0; padding-left: 18px; color: var(--text-secondary); font-size: 13px; }
+.upload-page .warn-list li { margin: 4px 0; }
+.upload-page .sub { display: block; font-size: 11px; color: var(--text-muted); }
+.upload-page .changes li { margin: 4px 0; }
+.upload-page .changes li.moved { font-weight: 600; }
+.upload-page .issues { list-style: none; margin: 0; padding: 0; }
+.upload-page .blocking-title { color: #8f1f1f; }
+.upload-page details.owner { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; background: var(--surface-2); }
+.upload-page details.owner summary { cursor: pointer; padding: 10px 12px; }
+.upload-page details.owner[open] summary { border-bottom: 1px solid var(--border); }
+.upload-page details.owner .issues { padding: 8px; }
+.upload-page .issues li { display: grid; gap: 2px; padding: 8px 10px; border-left: 3px solid var(--warning); background: var(--surface-1); margin-bottom: 6px; border-radius: 4px; }
+.upload-page .issues li.blocking { border-left-color: #d03b3b; background: #fbeaea; }
+.upload-page .where { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.upload-page .post { font-size: 12px; color: var(--text-muted); }
+.upload-page .count { font-weight: 400; color: var(--text-muted); }
+.upload-page .history { margin-top: 28px; }
+.upload-page .table-wrap { overflow-x: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); }
+.upload-page .file { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upload-page .live { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--growth-orange); color: var(--text-primary); }
