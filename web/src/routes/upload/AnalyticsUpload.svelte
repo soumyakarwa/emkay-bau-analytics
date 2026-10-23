@@ -5,6 +5,7 @@
   // others. Below: what is due this month, each platform's files, and the upload history.
 
   import { invalidateAll } from '$app/navigation';
+  import type { FollowerCount } from '$lib/analytics/followers';
   import type { AnalyticsUploadInfo, Coverage, PlatformCoverage } from '$lib/analytics/uploads';
   import { brandName, day, exportLabel, failureOf, when } from './format';
 
@@ -30,12 +31,43 @@
     message: string | null;
   }
 
-  let { brand, uploadedBy, coverage, history }: {
+  let { brand, uploadedBy, coverage, history, followerCounts, today }: {
     brand: string;
     uploadedBy: string;
     coverage: PlatformStatus[] | null;
     history: AnalyticsUploadInfo[];
+    followerCounts: FollowerCount[];
+    today: string;
   } = $props();
+
+  // Follower totals read off the profiles: the latest per platform, and a form to note a new one.
+  const latestCount = (platform: string) => followerCounts.filter((c) => c.platform === platform).at(-1);
+  let countInput = $state<Record<string, string>>({});
+  let countDate = $state<Record<string, string>>({});
+  let countSaving = $state<string | null>(null);
+  let countMessage = $state<{ platform: string; text: string; ok: boolean } | null>(null);
+
+  async function saveCount(platform: string) {
+    const body = new FormData();
+    body.set('brand', brand);
+    body.set('platform', platform);
+    body.set('count', countInput[platform] ?? '');
+    body.set('date', countDate[platform] || today);
+    body.set('enteredBy', uploadedBy);
+    countSaving = platform;
+    try {
+      const res = await fetch('/upload/followers', { method: 'POST', body });
+      if (!res.ok) {
+        countMessage = { platform, text: await failureOf(res), ok: false };
+        return;
+      }
+      countInput[platform] = '';
+      countMessage = { platform, text: 'Saved.', ok: true };
+      await invalidateAll();
+    } finally {
+      countSaving = null;
+    }
+  }
 
   let rows = $state<Row[]>([]);
   let fileInput = $state<HTMLInputElement>();
@@ -249,6 +281,36 @@
   </section>
 {/if}
 
+{#if coverage}
+  <section class="history">
+    <h2>Follower counts · {brandName(brand)}</h2>
+    <p class="note">
+      The exports only say how many people followed each day, not the total. Note each profile's total here once
+      (and re-check it once a year); the site works out the totals for other months from it.
+    </p>
+    <div class="table-wrap">
+      <table class="counts">
+        <thead><tr><th>Platform</th><th>Last noted</th><th>New count</th><th>Read on</th><th></th></tr></thead>
+        <tbody>
+          {#each coverage as p (p.platform)}
+            {@const c = latestCount(p.platform)}
+            <tr>
+              <td>{p.label}</td>
+              <td>{#if c}{c.count.toLocaleString('en-IN')}{c.approximate ? ' (approx.)' : ''}<span class="sub">{day(c.date)}</span>{:else}<span class="sub">Not noted yet</span>{/if}</td>
+              <td><input class="count" type="text" inputmode="decimal" placeholder="e.g. 3,735 or 1.6k" bind:value={countInput[p.platform]} aria-label="{p.label} followers" /></td>
+              <td><input class="date" type="date" max={today} value={countDate[p.platform] ?? today} onchange={(e) => (countDate[p.platform] = e.currentTarget.value)} aria-label="{p.label} count read on" /></td>
+              <td>
+                <button onclick={() => saveCount(p.platform)} disabled={!countInput[p.platform] || countSaving === p.platform}>{countSaving === p.platform ? 'Saving…' : 'Save'}</button>
+                {#if countMessage?.platform === p.platform}<span class="sub" class:bad={!countMessage.ok}>{countMessage.text}</span>{/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{/if}
+
 <section class="history">
   <h2>Analytics history{brand ? ` · ${brandName(brand)}` : ''}</h2>
   {#if history.length}
@@ -303,6 +365,11 @@
   details.platform .table-wrap { border: none; border-radius: 0; }
   .sub-inline { font-size: 13px; color: var(--text-muted); }
   .routine { padding: 0 14px; }
+  .counts input { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-1); }
+  .counts input.count { width: 140px; }
+  .counts td { vertical-align: middle; }
+  .counts button { padding: 6px 14px; }
+  .bad { color: #8f1f1f; }
   @media (max-width: 520px) {
     .batch > li { grid-template-columns: 22px 1fr; }
     .state { grid-column: 2; }

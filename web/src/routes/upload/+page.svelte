@@ -81,7 +81,7 @@
     <p class="note section-help">{SECTIONS.find((s) => s.id === data.section)?.help}</p>
 
     {#if data.section === 'analytics'}
-      <AnalyticsUpload {brand} {uploadedBy} coverage={data.coverage} history={data.analyticsHistory} />
+      <AnalyticsUpload {brand} {uploadedBy} coverage={data.coverage} history={data.analyticsHistory} followerCounts={data.followerCounts} today={data.today} />
     {:else}
       <CalendarUpload {brand} {uploadedBy} history={data.history} />
     {/if}

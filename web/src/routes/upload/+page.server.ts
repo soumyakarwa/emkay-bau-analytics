@@ -1,4 +1,5 @@
 import { brandById, type BrandId } from '$lib/brands';
+import { listFollowerCounts } from '$lib/analytics/followers';
 import { coverage, isDue, listAnalyticsUploads } from '$lib/analytics/uploads';
 import { today } from '$lib/server/today';
 import { latestUploads, listUploads } from '$lib/dataset/uploads';
@@ -23,6 +24,8 @@ export const load: PageServerLoad = async ({ url }) => {
     analyticsHistory: analytics.slice().reverse().slice(0, 30),
     coverage: brand
       ? coverage(analytics, brand).map((p) => ({ ...p, files: p.files.map((f) => ({ ...f, due: isDue(f, today()) })) }))
-      : null
+      : null,
+    followerCounts: brand ? await listFollowerCounts(store, brand) : [],
+    today: today()
   };
 };

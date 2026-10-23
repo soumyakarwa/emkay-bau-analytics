@@ -76,6 +76,22 @@ npm run show-analytics -- --brand global --platform youtube
 npm run show-analytics -- --brand im --post 7400000000000000002   # one post's figures over time
 ```
 
+### Follower totals
+
+The exports only say how many people followed (and, on X and YouTube, unfollowed) each day or
+month, never the total. So each profile's total is noted once, on the Upload page under
+Analytics → **Follower counts**, or from the terminal:
+
+```bash
+npm run set-followers -- --brand im --date 2026-10-23 linkedin=3735 instagram=327 x=689 youtube=6058
+```
+
+Counts can be typed as on the profile (`1.6k` is kept as approximate). The site works out the
+totals for other months from the latest count: exactly for X (follows minus unfollows), as an
+estimate for LinkedIn (new followers only), YouTube (whole months of subscribers gained minus
+lost) and Instagram (monthly overview summaries). Every count is kept; noting a fresh one, say
+once a year, corrects any drift (`src/lib/analytics/followers.ts`).
+
 ### The pipeline
 
 1. **Keep the original.** Every upload is saved once and never changed: the original file, and

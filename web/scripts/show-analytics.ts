@@ -14,6 +14,7 @@ import { resolve } from 'node:path';
 import { brandById, type BrandId } from '../src/lib/brands';
 import { PLATFORMS } from '../src/lib/analytics/catalog';
 import type { Platform } from '../src/lib/analytics/rows';
+import { followerTotals, listFollowerCounts } from '../src/lib/analytics/followers';
 import { buildTables, latestPosts, postHistory } from '../src/lib/analytics/tables';
 import { coverage, loadAnalyticsUploads } from '../src/lib/analytics/uploads';
 import { folderStore } from '../src/lib/server/folder-store';
@@ -25,7 +26,9 @@ if (!opts.brand || !brandById(opts.brand) || (opts.platform && !PLATFORMS.some((
   process.exit(2);
 }
 const brand = opts.brand as BrandId;
-const uploads = await loadAnalyticsUploads(folderStore(resolve(opts.data ?? '.data')), { brand });
+const store = folderStore(resolve(opts.data ?? '.data'));
+const uploads = await loadAnalyticsUploads(store, { brand });
+const counts = await listFollowerCounts(store, brand);
 const t = buildTables(uploads);
 const n = (v: number | null | undefined, digits = 0) =>
   v === null || v === undefined ? '–' : v.toLocaleString('en-IN', { maximumFractionDigits: digits });
@@ -42,6 +45,17 @@ for (const p of coverage(uploads, brand)) {
     c.label + (c.optional ? ' (optional)' : ''), String(c.uploads), c.from ? `${c.from} to ${c.to}` : '–',
     c.gaps.map((g) => `${g.from}–${g.to}`).join(', ') || (c.uploads ? 'none' : '–')
   ]), '  ');
+
+  const anchor = counts.filter((c) => c.platform === platform).at(-1);
+  if (anchor) {
+    const lastMonths = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(Date.UTC(Number(anchor.date.slice(0, 4)), Number(anchor.date.slice(5, 7)) - 1 - (5 - i), 1));
+      return d.toISOString().slice(0, 7);
+    });
+    const totals = followerTotals(t, counts, brand, platform, lastMonths);
+    console.log(`\n  Followers: ${n(anchor.count)}${anchor.approximate ? ' (approximate)' : ''} on ${anchor.date}; worked out for other months:`);
+    console.log('    ' + totals.map((x) => `${x.date} ${x.estimated ? '~' : ''}${n(x.total)}`).join(' · ') + (totals.some((x) => x.estimated) ? '   (~ estimate)' : ''));
+  }
 
   const rows = t.posts.filter((r) => r.platform === platform);
   if (rows.length) {
