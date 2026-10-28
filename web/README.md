@@ -2,7 +2,7 @@
 
 The Emkay BAU microsite (SvelteKit, TypeScript). It reads and checks each brand's calendar
 workbook, keeps every upload, combines the brands into All of Emkay, and shows them on a calendar.
-Analytics exports from LinkedIn, YouTube, Instagram and X are kept and cleaned into tables; LinkedIn's are laid over the BAU framework on the Analytics page.
+Analytics exports from LinkedIn, YouTube, Instagram and X are kept and cleaned into tables, laid over the BAU framework, and shown on five Analytics pages.
 
 ## Set up (once)
 
@@ -126,18 +126,44 @@ Adding a platform means a reader and an entry in `src/lib/analytics/catalog.ts` 
 `platforms.ts`; storage, tables and the upload page follow. When a reader changes,
 `ANALYTICS_READER_VERSION` goes up and older uploads are cleaned again from their original files.
 
-### The Analytics page (a first version, to be redesigned)
+### The Analytics pages
 
-`/analytics?brand=im` shows, month by month, the **median per post** by comms task, pillar, peg
-or format for BAU posts (matched to the calendar by the post ID in the LinkedIn column's link);
-totals for all BAU posts, posts in the calendar that are not BAU, **Outside BAU**, posts from
-before the brand's BAU start, and all posts; **links to fix** in the workbook; each month's
-posts; and the page's organic and paid new followers, page views and impressions.
+One brand at a time (pick it in the header; **All of Emkay** shows a brand picker):
 
-Only organic posts at least 7 days old on the export day are counted. The default measure is the
-**interaction rate**: reactions, comments and reposts per impression. LinkedIn's own engagement
-rate also counts clicks, and on carousels every page swipe is a click, so it puts carousels at
-70-120% against 3-12% for other formats: it compares formats rather than pegs.
+| Page | What it answers |
+| --- | --- |
+| `/analytics` **Overview** | The latest complete month: headline tiles, flags raised from the other pages (with links), the framework that month, what to try next, best and least received posts, the audience at a glance, and **data checks** (LinkedIn links to fix in the calendar). |
+| `/analytics/framework` **Framework** | Five tabs. **A · Split**: posts by comms task, pillar and peg, against targets, formats, platforms and the plan. **B · Performance**: results by part, month by month, consistency, and each comms task on its own outcome measure. **C · Platforms**, **D · Format, timing, series**, **E · What to change**. A and B follow the month picker (each month, last quarter, year so far); C, D and E use the last 3 months or the year so far; series cover every episode. `?tab=B` opens a tab. |
+| `/analytics/posts` **Posts** | Best and least received posts and what the best share, posts still settling, YouTube share watched, Instagram follows, LinkedIn and X clicks, and every post (searchable). Includes posts not in the calendar. |
+| `/analytics/growth` **Growth** | Followers and net new followers per platform (with goals, when set), reach organic and sponsored, engagement against posting, YouTube views and watch hours, what drove a month, paid growth, and peers (LinkedIn's competitor export). |
+| `/analytics/audience` **Audience** | Target audiences (by rules), followers outside financial services, the seniority split, who follows (and who watches on YouTube), who visits but doesn't follow, the follow rate, and which periods brought in target audiences. |
+
+Every bar, dot and cell shows its posts: hover for a preview, click for the list with links.
+
+**How results work.** A post's result is its interaction rate (likes, comments, shares or reposts
+and saves per impression; per view on YouTube) divided by the typical rate: the median of the
+brand's posts in the same format on the same platform over the last 6 months (the platform's
+posts of any format when there are fewer than 3). 1.0× is a typical post. A calendar post's result
+is the median of its platforms'; a part's result is the median of its posts'. Only organic posts
+at least 7 days old on the export day count. Calendar posts are matched to the exports by the post
+ID in their platform links.
+
+**Settings** the team may want to change are in one file, `src/lib/analytics/insights/settings.ts`:
+the settle time, the typical window, the verdict thresholds, each comms task's outcome measure,
+**follower goals** (none yet; add one and Growth shows a goal line and whether the account is on
+pace), the target-audience rules, the financial-services industries and the seniority groups.
+
+**What the exports can't tell us yet**, and how the pages handle it:
+
+- LinkedIn exports each audience breakdown on its own (never industry by seniority), so each
+  target-audience rule uses one breakdown.
+- Each LinkedIn follower export is a snapshot. Trends and "share of new followers" need two or
+  more; until then the Audience page shows the current picture and says so.
+- Only Instagram's export gives the time a post went out; LinkedIn and X give the date only.
+- YouTube gives country, traffic source and content type, not age. Watch hours and subscribers
+  come from whole-month exports only.
+- The calendar has no "moved" status, so the plan shows published, not published yet and dropped.
+- LinkedIn counts carousel swipes as clicks, so carousels are left out of click measures.
 
 ## Passwords
 
@@ -218,7 +244,8 @@ npm run show-emkay -- --brand im --history
 | `src/lib/analytics/csv.ts`, `common.ts` | CSV and text encodings; dates, numbers and durations in every platform's style. |
 | `src/lib/analytics/uploads.ts` | Saves each export once (original + cleaned rows), checks it, and tracks coverage. |
 | `src/lib/analytics/tables.ts` | Combines every upload into the five tables. |
-| `src/lib/analytics/analysis.ts` | Matches posts to the calendar and builds the month-by-month medians. |
+| `src/lib/analytics/analysis.ts` | The LinkedIn link checks shown on the Overview. |
+| `src/lib/analytics/insights/` | The analytics pages: `model.ts` (posts matched and scored), `inputs.ts` (what each page gets from the server), one file per page (`framework.ts`, `posts.ts`, `growth.ts`, `audience.ts`, `overview.ts`), `view.ts` (shared helpers) and `settings.ts`. |
 | `src/routes/` | The pages: calendar, analytics, upload, sign-in. |
 | `src/app.css` | Emkay brand colours and Open Sans, from the Emkay guidebook. |
 

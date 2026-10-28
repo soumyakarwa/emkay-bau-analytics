@@ -17,7 +17,7 @@ This is version 2, built one step at a time. The first version is on the `main` 
 6. Storage, built for Vercel Blob.
 7. **Sign-in** (done): a team password to view, and one upload password per brand. See [`web/`](web/).
 8. Deploy to Vercel.
-9. **Analytics** (in progress): the pipeline is done for LinkedIn, YouTube, Instagram and X: every export kept and cleaned into five tables (posts with their history, daily, audience, benchmark, totals). Next: design the analytics pages, then the blog. See [`web/`](web/).
+9. **Analytics** (done, first release): every LinkedIn, YouTube, Instagram and X export kept and cleaned into five tables, and five pages built on them: Overview, Framework, Posts, Growth and Audience. Next: the blog. See [`web/`](web/).
 
 ## Layout
 

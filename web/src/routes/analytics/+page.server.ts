@@ -1,40 +1,24 @@
-import { brandById, type BrandId } from '$lib/brands';
-import {
-  GROUPINGS, METRICS, accountMonths, analyseLinkedIn, brandTable, emkayTable,
-  type GroupBy, type Metric
-} from '$lib/analytics/analysis';
-import { buildTables } from '$lib/analytics/tables';
-import { loadAnalyticsUploads } from '$lib/analytics/uploads';
-import { isMonth } from '$lib/calendar/calendar';
-import { loadDataset } from '$lib/dataset/dataset';
-import { getStore } from '$lib/server/data';
+import { analyseLinkedIn } from '$lib/analytics/analysis';
+import { audienceInput, frameworkInput, growthInput, postsInput } from '$lib/analytics/insights/inputs';
+import { monthDone } from '$lib/analytics/insights/view';
+import { loadBrandModel } from '$lib/server/analytics';
+import { brandParam } from '$lib/server/analytics-page';
+import { today } from '$lib/server/today';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
-  const store = getStore();
-  const [ds, uploads] = await Promise.all([loadDataset(store), loadAnalyticsUploads(store)]);
-  const brand = (brandById(url.searchParams.get('brand') ?? '')?.id ?? null) as BrandId | null;
-  const by = (GROUPINGS.find((g) => g.id === url.searchParams.get('by'))?.id ?? 'commsTask') as GroupBy;
-  const metric = (METRICS.find((m) => m.id === url.searchParams.get('metric'))?.id ?? 'interactionRate') as Metric;
-
-  const mine = brand ? uploads.filter((u) => u.brand === brand) : uploads;
-  const tables = buildTables(mine);
-  const analysis = analyseLinkedIn(ds, tables);
-  const table = brand ? brandTable(ds, analysis, brand, by, metric) : emkayTable(ds, analysis, metric);
-  const monthParam = url.searchParams.get('month');
-  const month = isMonth(monthParam) && table.months.includes(monthParam) ? monthParam : (table.months.at(-1) ?? null);
-
-  return {
-    brand,
-    by,
-    metric,
-    month,
-    hasContent: mine.some((u) => u.file === 'content'),
-    hasCalendar: ds.brandYears.some((y) => !brand || y.brand === brand),
-    asOf: analysis.asOf,
-    table,
-    account: brand ? accountMonths(tables, brand, table.months) : [],
-    fixes: analysis.fixes,
-    posts: month ? analysis.posts.filter((p) => p.month === month) : []
-  };
+  const brand = brandParam(url);
+  if (!brand) return { brand: null, input: null, fixes: [] };
+  const { model, counts, ds, tables } = await loadBrandModel(brand);
+  const t = today();
+  const fw = frameworkInput(model, t);
+  const posts = postsInput(model, t);
+  // The overview only lists the month under review's posts; growth and audience need no post lists.
+  const months = posts.months;
+  const last = months.at(-1);
+  const month = last && !monthDone(last, posts.asOf) && months.length > 1 ? months.at(-2) : last;
+  const growth = { ...growthInput(model, counts, t), posts: [] };
+  const audience = { ...audienceInput(model, t), posts: [] };
+  const fixes = analyseLinkedIn(ds, tables).fixes.filter((f) => f.brand === brand);
+  return { brand, input: { fw, posts: { ...posts, posts: posts.posts.filter((p) => p.month === month) }, growth, audience }, fixes };
 };
