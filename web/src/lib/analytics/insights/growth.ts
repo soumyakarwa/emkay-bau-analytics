@@ -199,14 +199,18 @@ export function growthView(input: GrowthInput, S: State, set: SetState): any {
     : ['No LinkedIn follower export yet, so paid and organic growth can’t be split.'];
   const paidAria = hasPaid ? 'New LinkedIn followers by month, organic and sponsored: ' + Li.gains.map((g, i) => `${GY[i]} ${nn(g) - nn(Li.spons[i])} organic, ${nn(Li.spons[i])} sponsored`).join('; ') : '';
 
-  // 7. Peers.
-  const peers = input.peers.filter((p) => p.followers);
-  const gr = peers.map((p) => ({ name: p.name, g: (nn(p.newFollowers) / nn(p.followers)) * 100, n: nn(p.newFollowers), per: p.posts ? nn(p.engagements) / p.posts : 0, posts: nn(p.posts), own: p.own }));
+  // 7. Peers. Growth is new followers against total followers; LinkedIn's newer competitor
+  // export has no totals, so then it compares new followers.
+  const peers = input.peers.filter((p) => p.newFollowers !== null);
+  const hasTotals = peers.length > 0 && peers.every((p) => p.followers);
+  const gr = peers.map((p) => ({ name: p.name, g: hasTotals ? (nn(p.newFollowers) / nn(p.followers)) * 100 : nn(p.newFollowers), n: nn(p.newFollowers), per: p.posts ? nn(p.engagements) / p.posts : 0, posts: nn(p.posts), own: p.own }));
   const maxGr = Math.max(0.001, ...gr.map((x) => x.g)), maxPer = Math.max(0.001, ...gr.map((x) => x.per));
-  const peerGrowth = [...gr].sort((a, b) => b.g - a.g).map((x) => ({ name: x.name, cls: 'peer' + (x.own ? ' own' : ''), w: ((x.g / maxGr) * 100).toFixed(1), v: x.g.toFixed(1) + '%', sub: '+' + n0(x.n) + ' followers' }));
+  const peerGrowth = [...gr].sort((a, b) => b.g - a.g).map((x) => ({ name: x.name, cls: 'peer' + (x.own ? ' own' : ''), w: ((x.g / maxGr) * 100).toFixed(1), v: hasTotals ? x.g.toFixed(1) + '%' : '+' + n0(x.n), sub: hasTotals ? '+' + n0(x.n) + ' followers' : 'new followers' }));
   const peerEng = [...gr].sort((a, b) => b.per - a.per).map((x) => ({ name: x.name, cls: 'peer' + (x.own ? ' own' : ''), w: ((x.per / maxPer) * 100).toFixed(1), v: x.per.toFixed(1), sub: plural(x.posts) }));
   const fmtD = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-  const peersText = input.peersPeriod ? `From LinkedIn’s competitor export, ${fmtD(input.peersPeriod.split(' to ')[0])} to ${fmtD(input.peersPeriod.split(' to ')[1])}. Peers are the pages LinkedIn lists for this page.` : '';
+  const peersText = input.peersPeriod ? `From LinkedIn’s competitor export, ${fmtD(input.peersPeriod.split(' to ')[0])} to ${fmtD(input.peersPeriod.split(' to ')[1])}. Peers are the pages LinkedIn lists for this page.` + (hasTotals ? '' : ' This export gives new followers but not total followers, so growth is compared in new followers.') : '';
+  const peerGrowthTitle = hasTotals ? 'Follower growth over the period' : 'New followers over the period';
+  const peerEngTitle = hasTotals ? 'Likes, comments and reposts per post' : 'Reactions and comments per post';
 
   // The open panel.
   const O = S.gOpen && S.gOpen.brand === input.brand ? S.gOpen : null;
@@ -226,7 +230,7 @@ export function growthView(input: GrowthInput, S: State, set: SetState): any {
     hasYt, noYt: !hasYt, ytViews, ytHours, ytStand, ytViewsAria: 'YouTube views by month: ' + yv.map((v, i) => GY[i] + ' ' + n0(v)).join(', '), ytHoursAria: 'YouTube watch hours by month: ' + yh.map((v, i) => GY[i] + ' ' + n0(v)).join(', '),
     dMonths, dMonthName: plain(GFULL[dm]), dHas, dNone: !dHas, dNoneText, dReach, dFollow, dFollowNone: dFollow.length === 0,
     hasPaid, paid, paidStand, paidAria,
-    hasPeers: gr.length > 0, noPeers: gr.length === 0, peerGrowth, peerEng, peersText,
+    hasPeers: gr.length > 0, noPeers: gr.length === 0, peerGrowth, peerEng, peersText, peerGrowthTitle, peerEngTitle,
     ...dr2, close: () => set({ gOpen: null })
   };
 }

@@ -101,3 +101,11 @@ export function competitorsExport(days: Days, pages: [string, number, number, nu
     rows: [[us(days.from), us(days.to)], ['Page', 'Total Followers', 'New Followers', 'Total post engagements', 'Total posts'], ...pages]
   }]);
 }
+
+/** LinkedIn's newer Competitors layout (from October 2026): no total followers, reactions and comments instead of engagements. */
+export function competitorsExportNew(days: Days, pages: [string, number, number, number, number, number][]): Uint8Array {
+  return writeXls([{
+    name: 'COMPETITORS',
+    rows: [[us(days.from), us(days.to)], ['Page', 'New Followers', 'Posts', 'Comments', 'Comments per day', 'Reactions'], ...pages]
+  }]);
+}

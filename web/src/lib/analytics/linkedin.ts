@@ -175,10 +175,14 @@ function readPosts(t: Table, skipped: string[]): PostRow[] {
   return posts;
 }
 
-const COMPETITOR = { page: 'Page', total: 'Total Followers', new: 'New Followers', engagements: 'Total post engagements', posts: 'Total posts' };
+// Two layouts: the older one has "Total Followers", "Total post engagements" and "Total posts";
+// the newer (from October 2026) has "Posts", "Comments" and "Reactions", and no total followers.
+const COMPETITOR = { page: 'Page', total: 'Total Followers', new: 'New Followers', engagements: 'Total post engagements', posts: 'Total posts', postsNew: 'Posts', comments: 'Comments', reactions: 'Reactions' };
 
 function readCompetitors(sheet: Sheet, ownNames: string[]): { benchmark: BenchmarkRow[]; from: string | null; to: string | null } {
-  const t = need(table(sheet, COMPETITOR.page), sheet.name, [COMPETITOR.page, COMPETITOR.engagements, COMPETITOR.posts]);
+  const found = table(sheet, COMPETITOR.page);
+  const newer = !!found && !found.headers.includes(COMPETITOR.engagements) && found.headers.includes(COMPETITOR.reactions);
+  const t = need(found, sheet.name, newer ? [COMPETITOR.page, COMPETITOR.postsNew, COMPETITOR.reactions] : [COMPETITOR.page, COMPETITOR.engagements, COMPETITOR.posts]);
   // The period is on the first row, above the table: "10/14/2025 | 10/13/2026".
   let from: string | null = null;
   let to: string | null = null;
@@ -196,8 +200,9 @@ function readCompetitors(sheet: Sheet, ownNames: string[]): { benchmark: Benchma
       own: own.some((n) => normalise(page).startsWith(n)),
       totalFollowers: num(columns, COMPETITOR.total),
       newFollowers: num(columns, COMPETITOR.new),
-      engagements: num(columns, COMPETITOR.engagements),
-      posts: num(columns, COMPETITOR.posts),
+      // The newer layout: reactions and comments (it has no reposts).
+      engagements: newer ? (num(columns, COMPETITOR.reactions) ?? 0) + (num(columns, COMPETITOR.comments) ?? 0) : num(columns, COMPETITOR.engagements),
+      posts: num(columns, newer ? COMPETITOR.postsNew : COMPETITOR.posts),
       columns
     };
   }).filter((b) => b.page);

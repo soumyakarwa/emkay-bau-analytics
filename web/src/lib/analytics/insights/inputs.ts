@@ -233,10 +233,16 @@ export function growthInput(m: BrandModel, counts: FollowerCount[], today: strin
       inter = addSeries(mt('x', 'overview', 'Likes'), mt('x', 'overview', 'Replies'), mt('x', 'overview', 'Reposts'), mt('x', 'overview', 'Bookmarks'), mt('x', 'overview', 'Shares'));
     } else if (platform === 'youtube') {
       gains = pick(wholeMonths(t, b, 'youtube', 'content', 'Subscribers'), months);
-      org = mt('youtube', 'content', 'Views');
-      inter = mt('youtube', 'content', 'Likes');
+      // Views and interactions from each cycle's totals row; the daily file only has whichever
+      // measure was on YouTube's chart when it was exported, so it is the fallback.
+      const cyc = (col: string) => pick(wholeMonths(t, b, 'youtube', 'content', col), months);
+      const dailyViews = mt('youtube', 'content', 'Views');
+      org = cyc('Views').map((v, i) => v ?? dailyViews[i]);
+      const dailyLikes = mt('youtube', 'content', 'Likes');
+      const cycInter = addSeries(cyc('Likes'), cyc('Comments added'), cyc('Shares'));
+      inter = cycInter.map((v, i) => v ?? dailyLikes[i]);
       hours = pick(wholeMonths(t, b, 'youtube', 'content', 'Watch time (hours)'), months);
-      if (org.some((v) => v !== null)) notes.push('YouTube subscribers and watch hours come from exports covering one whole cycle (25th to 24th); interactions are likes.');
+      if (org.some((v) => v !== null)) notes.push('YouTube views, subscribers and watch hours come from exports covering one whole cycle (25th to 24th); interactions are likes, comments and shares.');
     } else {
       const ovViews = wholeMonths(t, b, 'instagram', 'overview', 'Views');
       gains = pick(wholeMonths(t, b, 'instagram', 'overview', 'New Followers'), months);

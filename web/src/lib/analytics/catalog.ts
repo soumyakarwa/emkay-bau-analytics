@@ -47,7 +47,7 @@ export const PLATFORMS: PlatformSpec[] = [
     routine: 'Each month, export the cycle that just ended (25th to 24th): YouTube Studio → Analytics → Advanced mode → set a custom date range → each report → Export → CSV; upload the zips as they are.',
     dates: 'cycle',
     files: [
-      { id: 'content', label: 'Content', optional: false, rule: 'cycle', help: 'Advanced mode → Content, with Likes, Comments added, Shares, Average percentage viewed and Subscribers gained/lost added' },
+      { id: 'content', label: 'Content', optional: false, rule: 'cycle', help: 'Advanced mode → Content, with these columns added: Views, Watch time (hours), Likes, Comments added, Shares, Average percentage viewed, Subscribers gained and Subscribers lost' },
       { id: 'traffic-source', label: 'Traffic source', optional: false, rule: 'cycle', help: 'Advanced mode → Traffic source' },
       { id: 'geography', label: 'Geography', optional: true, rule: 'cycle', help: 'Advanced mode → Geography' },
       { id: 'content-type', label: 'Content type', optional: true, rule: 'cycle', help: 'Advanced mode → Content type' }

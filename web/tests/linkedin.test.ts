@@ -5,7 +5,7 @@ import { exportDate, isShortLinkedInLink, linkedInKey, pageFromFileName, readLin
 import { coverage, listAnalyticsUploads, loadAnalyticsUploads, publishAnalyticsFile } from '../src/lib/analytics/uploads';
 import { memoryStore } from '../src/lib/dataset/store';
 import { writeXls } from './xls-writer';
-import { competitorsExport, contentExport, followersExport, postId, visitorsExport } from './linkedin-sample';
+import { competitorsExport, competitorsExportNew, contentExport, followersExport, postId, visitorsExport } from './linkedin-sample';
 
 const DAYS = { from: '2026-08-01', to: '2026-10-12' };
 
@@ -134,6 +134,18 @@ describe('followers, visitors and competitors exports', () => {
     expect(x.benchmark.map((b) => [b.page, b.own, b.engagements, b.posts])).toEqual([
       ['Peer Capital', false, 3600, 300],
       ['Emkay Global Financial Services Ltd', true, 2350, 199]
+    ]);
+  });
+
+  it('competitors, newer layout: no total followers; reactions and comments count as engagements', () => {
+    const x = readLinkedInExport(competitorsExportNew({ from: '2025-10-29', to: '2026-10-28' }, [
+      ['Peer Capital', 1965, 561, 68, 0, 4239],
+      ['Emkay Investment Managers Limited', 1065, 305, 76, 0, 2778]
+    ]), 'competition.xlsx', ['Emkay Investment Managers']);
+    expect([x.file, x.from, x.to]).toEqual(['competitors', '2025-10-29', '2026-10-28']);
+    expect(x.benchmark.map((b) => [b.page, b.own, b.totalFollowers, b.newFollowers, b.engagements, b.posts])).toEqual([
+      ['Peer Capital', false, null, 1965, 4307, 561],
+      ['Emkay Investment Managers Limited', true, null, 1065, 2854, 305]
     ]);
   });
 });

@@ -166,10 +166,10 @@
 {#if V.hasPeers}
 <p class="h3sub">{V.peersText}</p>
 <div class="two">
-<div class="card"><p class="dr-k" style="margin-bottom: 6px">Follower growth over the period</p>
+<div class="card"><p class="dr-k" style="margin-bottom: 6px">{V.peerGrowthTitle}</p>
 {#each V.peerGrowth as r}<div class={r.cls}><span>{r.name}</span><div class="ptr"><span class="pbar up" style="width: {r.w}%"></span></div><span class="pv">{r.v}<span class="sub">{r.sub}</span></span></div>{/each}
 </div>
-<div class="card"><p class="dr-k" style="margin-bottom: 6px">Likes, comments and reposts per post</p>
+<div class="card"><p class="dr-k" style="margin-bottom: 6px">{V.peerEngTitle || 'Interactions per post'}</p>
 {#each V.peerEng as r}<div class={r.cls}><span>{r.name}</span><div class="ptr"><span class="pbar up" style="width: {r.w}%"></span></div><span class="pv">{r.v}<span class="sub">{r.sub}</span></span></div>{/each}
 </div>
 </div>

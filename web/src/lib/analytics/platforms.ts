@@ -36,6 +36,7 @@ export const ACCOUNTS: Record<BrandId, Partial<Record<Platform, string[]>>> = {
   },
   im: {
     linkedin: ['emkayinvestmentmanagers'],
+    youtube: ['Emkay Investment Managers Limited (EIML)'],
     instagram: ['emkayinvestmentmanagers', 'Emkay Investment Managers Limited'],
     x: ['EmkayInvestment']
   },

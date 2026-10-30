@@ -8,7 +8,7 @@ import type { AudienceInput, FwInput, GrowthInput, PostsInput } from './inputs';
 import { postsView } from './posts';
 import { cycleRange } from '../cycle';
 import { RESULT, SETTLE_DAYS } from './settings';
-import { cycleSpan, monthDone, monthLabel, TASK_COLORS } from './view';
+import { cycleSpan, monthDone, monthLabel, plural, TASK_COLORS } from './view';
 
 export interface OverviewInput { fw: FwInput; posts: PostsInput; growth: GrowthInput; audience: AudienceInput }
 const noop = () => {};
@@ -83,7 +83,7 @@ export function overviewView(input: OverviewInput, href: (page: string, tab?: st
       const b1 = F.b1.find((r: any) => r.name === k.name) || {};
       const t = F.a3[i];
       const res = parseFloat(b1.val);
-      return { name: k.name, color: k.color, w: ((col.cells[i] / tot) * 100).toFixed(1), share: `${col.cells[i]} posts · ${Math.round((col.cells[i] / tot) * 100)}%`, result: b1.val || '–', rcls: 'chip ' + (Number.isNaN(res) ? 'c-flat' : res >= 1 ? 'c-up' : 'c-down'), target: t.hasTarget ? `${t.ytd}% against ${t.target}%` : 'No target set', tcls: 'chip ' + (t.verdict === 'On target' ? 'c-up' : t.hasTarget ? (t.verdict.includes('under') ? 'c-down' : 'c-flat') : 'c-flat') };
+      return { name: k.name, color: k.color, w: ((col.cells[i] / tot) * 100).toFixed(1), share: `${plural(col.cells[i])} · ${Math.round((col.cells[i] / tot) * 100)}%`, result: b1.val || '–', rcls: 'chip ' + (Number.isNaN(res) ? 'c-flat' : res >= 1 ? 'c-up' : 'c-down'), target: t.hasTarget ? `${t.ytd}% against ${t.target}%` : 'No target set', tcls: 'chip ' + (t.verdict === 'On target' ? 'c-up' : t.hasTarget ? (t.verdict.includes('under') ? 'c-down' : 'c-flat') : 'c-flat') };
     });
     const E = frameworkView(input.fw, { fwTab: 'E', fwPeriod: 'm' + mi, fwBrand: brand }, noop);
     ideas = E.e2.filter((g: any) => g.items.length).map((g: any) => ({ group: g.name, cls: g.cls, name: g.items[0].name, path: g.items[0].path, try: g.items[0].try }));

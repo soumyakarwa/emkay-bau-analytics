@@ -57,7 +57,7 @@ and on the Upload page, which shows the exact dates of the cycle to export.
 | Platform | Export | Period |
 | --- | --- | --- |
 | LinkedIn | Page admin view → Analytics → **Content**, **Followers**, **Visitors** (and **Competitors**, if set up) → Export (.xls / .xlsx) | The last 365 days |
-| YouTube | Studio → Analytics → **Advanced mode** → **Content** (with Likes, Comments added, Shares, Average percentage viewed and Subscribers gained/lost added as columns), **Traffic source** (and Geography, Content type) → Export → CSV (.zip each) | **The cycle that just ended: 25th to 24th** |
+| YouTube | Studio → Analytics → **Advanced mode** → **Content** (with Views, Watch time (hours), Likes, Comments added, Shares, Average percentage viewed and Subscribers gained/lost as columns), **Traffic source** (and Geography, Content type) → Export → CSV (.zip each) | **The cycle that just ended: 25th to 24th** |
 | Instagram | Meta Business Suite → Insights → **Content** → Export (.csv, one row per post); the overview (for the cycle, 25th to 24th) and posts summaries are optional | The last 365 days |
 | X | Analytics → **Content** and **Overview** → Export (.csv) | The last 365 days |
 

@@ -36,7 +36,7 @@ exact dates of the cycle to export.
 | LinkedIn | Followers | Last 365 days | Analytics → Followers → Export |
 | LinkedIn | Visitors | Last 365 days | Analytics → Visitors → Export |
 | LinkedIn | Competitors (optional) | Any period | Analytics → Competitors → Export (once competitors are set up) |
-| YouTube | Content | **The cycle: 25th to 24th** | Studio → Analytics → Advanced mode → custom date range → Content (with Likes, Comments added, Shares, Average percentage viewed and Subscribers gained/lost added as columns) → Export → CSV |
+| YouTube | Content | **The cycle: 25th to 24th** | Studio → Analytics → Advanced mode → custom date range → Content, with these columns added: Views, **Watch time (hours)**, Likes, Comments added, Shares, Average percentage viewed, Subscribers gained and Subscribers lost → Export → CSV |
 | YouTube | Traffic source | **The cycle: 25th to 24th** | Advanced mode → Traffic source → Export → CSV |
 | YouTube | Geography, Content type (optional) | **The cycle: 25th to 24th** | Advanced mode → Geography / Content type → Export → CSV |
 | Instagram | Posts | Last 365 days | Meta Business Suite → Insights → Content → Export (one row per post) |
