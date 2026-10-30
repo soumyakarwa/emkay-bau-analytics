@@ -16,7 +16,22 @@
 
 import type { BrandId } from '../brands';
 import type { AudienceRow, BenchmarkRow, Measures, Platform, PostRow } from './rows';
+import { isWholeCycle } from './cycle';
 import { isWholeMonth, type AnalyticsUpload } from './uploads';
+
+/** A period that adds up with others: one cycle (25th–24th) or, from older exports, one calendar month. */
+export const isWholePeriod = (from: string, to: string) => isWholeCycle(from, to) || isWholeMonth(from, to);
+
+/**
+ * Periods that add up without counting a day twice: whole cycles first, then whole calendar
+ * months (older exports) that don't overlap them.
+ */
+export function addablePeriods<T extends { from: string; to: string }>(periods: T[]): T[] {
+  const ranked = [...periods.filter((p) => isWholeCycle(p.from, p.to)), ...periods.filter((p) => !isWholeCycle(p.from, p.to) && isWholeMonth(p.from, p.to))];
+  const out: T[] = [];
+  for (const p of ranked) if (!out.some((q) => p.from <= q.to && q.from <= p.to)) out.push(p);
+  return out;
+}
 
 export interface PostSnapshot extends PostRow {
   brand: BrandId;
@@ -141,7 +156,7 @@ export function latestPosts(posts: PostSnapshot[]): PostSnapshot[] {
     }
     const byPeriod = new Map<string, PostSnapshot>();
     for (const r of rows) byPeriod.set(`${r.from}|${r.to}`, r); // later uploads come later
-    const months = [...byPeriod.values()].filter((r) => isWholeMonth(r.from, r.to));
+    const months = addablePeriods([...byPeriod.values()]);
     if (months.length) out.push(addUp(months));
   }
   return out;
@@ -155,7 +170,7 @@ export function postHistory(posts: PostSnapshot[], brand: BrandId, postId: strin
   const byPoint = new Map<string, PostSnapshot>();
   for (const p of posts) {
     if (p.brand !== brand || p.postId !== postId || p.sponsored || (platform && p.platform !== platform)) continue;
-    if (p.figures === 'period' && !isWholeMonth(p.from, p.to)) continue;
+    if (p.figures === 'period' && !isWholePeriod(p.from, p.to)) continue;
     byPoint.set(p.figures === 'period' ? p.from : p.asOf, p);
   }
   return [...byPoint.values()].sort((a, b) => a.to.localeCompare(b.to));

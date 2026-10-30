@@ -47,20 +47,24 @@ the brand stays selected when you move between pages.
 
 ### Monthly routine
 
-Once a month, per brand, export from each platform the brand uses and upload everything at once
-on the Upload page, under **Analytics**, exactly as the platforms give the files (no opening in
-Excel, no renaming, no unzipping). The site recognises each file by its contents.
+The analytics month is a **cycle from the 25th to the 24th** (`src/lib/analytics/cycle.ts`),
+named after the month it ends in. Once a month, on or after the 25th, per brand, export from each
+platform the brand uses and upload everything at once on the Upload page, under **Analytics**,
+exactly as the platforms give the files (no opening in Excel, no renaming, no unzipping). The site
+recognises each file by its contents. The full list of files is in the [main README](../README.md#monthly-analytics-what-to-export)
+and on the Upload page, which shows the exact dates of the cycle to export.
 
 | Platform | Export | Period |
 | --- | --- | --- |
 | LinkedIn | Page admin view → Analytics → **Content**, **Followers**, **Visitors** (and **Competitors**, if set up) → Export (.xls / .xlsx) | The last 365 days |
-| YouTube | Studio → Analytics → **Advanced mode** → **Content** (with Likes, Comments added, Shares, Average percentage viewed and Subscribers gained/lost added as columns), **Traffic source** (and Geography, Content type) → Export → CSV (.zip each) | **The previous calendar month** |
-| Instagram | Meta Business Suite → Insights → **Content** → Export (.csv, one row per post); the overview and posts summaries are optional | The last 365 days |
+| YouTube | Studio → Analytics → **Advanced mode** → **Content** (with Likes, Comments added, Shares, Average percentage viewed and Subscribers gained/lost added as columns), **Traffic source** (and Geography, Content type) → Export → CSV (.zip each) | **The cycle that just ended: 25th to 24th** |
+| Instagram | Meta Business Suite → Insights → **Content** → Export (.csv, one row per post); the overview (for the cycle, 25th to 24th) and posts summaries are optional | The last 365 days |
 | X | Analytics → **Content** and **Overview** → Export (.csv) | The last 365 days |
 
 Why YouTube differs: LinkedIn, Instagram and X give each post's lifetime figures, so a newer
 export simply updates them. YouTube gives only what happened in the chosen period, so the site
-adds up whole calendar months; YouTube keeps full history, so a missed month can be exported later.
+adds up whole cycles (older calendar-month exports still count towards each video's totals, but
+not towards a cycle); YouTube keeps full history, so a missed cycle can be exported later.
 
 Each file is checked on its own; **Publish all ready files** publishes those that passed and
 skips the rest, saying why (another brand's account, already uploaded, chosen twice, not an
@@ -128,7 +132,7 @@ Adding a platform means a reader and an entry in `src/lib/analytics/catalog.ts` 
 
 ### The Analytics pages
 
-One brand at a time (pick it in the header; **All of Emkay** shows a brand picker):
+One brand at a time (pick it in the header; **All of Emkay** shows a brand picker). Every "month" on these pages is a cycle, 25th to 24th; the Overview reviews the latest cycle that has ended and lists posts **settled since last review**.
 
 | Page | What it answers |
 | --- | --- |

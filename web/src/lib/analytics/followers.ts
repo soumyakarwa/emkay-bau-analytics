@@ -14,8 +14,8 @@
 import type { BrandId } from '../brands';
 import type { Store } from '../dataset/store';
 import type { Platform } from './rows';
-import { dailySeries, type Tables } from './tables';
-import { isWholeMonth } from './uploads';
+import { cycleOf, cycleRange } from './cycle';
+import { addablePeriods, dailySeries, type Tables } from './tables';
 
 export interface FollowerCount {
   brand: BrandId;
@@ -79,11 +79,11 @@ function netPerDay(tables: Tables, brand: BrandId, platform: Platform): { days: 
     for (const d of gains) if (d.value !== null) add(d.date, d.value - (losses.get(d.date) ?? 0));
     return { days, exact: true };
   }
-  // YouTube and Instagram give a total per period: spread whole months evenly over their days.
+  // YouTube and Instagram give a total per period: spread whole cycles (or, from older exports,
+  // whole months) evenly over their days.
   const column = platform === 'youtube' ? 'Subscribers' : 'New Followers';
   const file = platform === 'youtube' ? 'content' : 'overview';
-  for (const t of tables.totals) {
-    if (t.brand !== brand || t.platform !== platform || t.file !== file || !isWholeMonth(t.from, t.to)) continue;
+  for (const t of addablePeriods(tables.totals.filter((t) => t.brand === brand && t.platform === platform && t.file === file))) {
     const n = t.values[column];
     if (n === null || n === undefined) continue;
     const span = Math.round((Date.parse(t.to) - Date.parse(t.from)) / DAY) + 1;
@@ -101,23 +101,28 @@ export interface FollowerTotal {
 }
 
 /**
- * The follower total at the end of each month, worked out from the latest count: forwards by
+ * The follower total at the end of each month (or each cycle, with `by: 'cycle'`), worked out from the latest count: forwards by
  * adding each day's net change, backwards by taking it away. Days the exports do not cover count
  * as no change, and make the total an estimate; a platform whose exports say nothing about
  * followers shows only the count itself. Months more than `limit` days of missing figures
  * away from the count are left out.
  */
-export function followerTotals(tables: Tables, counts: FollowerCount[], brand: BrandId, platform: Platform, months: string[], limit = 45): FollowerTotal[] {
+export function followerTotals(tables: Tables, counts: FollowerCount[], brand: BrandId, platform: Platform, months: string[], limit = 45, by: 'month' | 'cycle' = 'month'): FollowerTotal[] {
+  const periodOf = (day: string) => (by === 'cycle' ? cycleOf(day) : day.slice(0, 7));
+  const endOf = (month: string) => {
+    if (by === 'cycle') return cycleRange(month).to;
+    const [y, m] = month.split('-').map(Number);
+    return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  };
   const anchor = counts.filter((c) => c.brand === brand && c.platform === platform).sort((a, b) => a.date.localeCompare(b.date)).at(-1);
   if (!anchor) return [];
   const { days, exact } = netPerDay(tables, brand, platform);
   const out: FollowerTotal[] = [];
   const lastData = [...days.keys()].sort().at(-1) ?? '';
-  for (const month of days.size ? months : months.filter((m) => m === anchor.date.slice(0, 7))) {
-    const [y, m] = month.split('-').map(Number);
-    const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  for (const month of days.size ? months : months.filter((m) => m === periodOf(anchor.date))) {
+    const end = endOf(month);
     // The count's own month ends on the count's day until the exports reach the month's end.
-    const date = month === anchor.date.slice(0, 7) && end > anchor.date && end > lastData ? anchor.date : end;
+    const date = month === periodOf(anchor.date) && end > anchor.date && end > lastData ? anchor.date : end;
     let total = anchor.count;
     let missing = 0;
     // Forwards: add the days after the count up to `date`. Backwards: take away the days after `date` up to the count.

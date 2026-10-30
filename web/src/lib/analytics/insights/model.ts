@@ -14,6 +14,7 @@ import type { BrandId } from '../../brands';
 import type { Dataset, DatasetPost } from '../../dataset/dataset';
 import { normalise, DROPPED, PUBLISHED } from '../../workbook/contract';
 import type { CommsTask, Peg } from '../../workbook/types';
+import { cycleOf } from '../cycle';
 import { POST_KEY } from '../platforms';
 import type { Platform } from '../rows';
 import { latestPosts, type PostSnapshot, type Tables } from '../tables';
@@ -74,6 +75,7 @@ export interface Post {
   title: string;
   /** YYYY-MM-DD: the calendar's date, else the platform's. */
   date: string;
+  /** The cycle it falls in (25th to 24th), named after the month it ends in: YYYY-MM. */
   month: string;
   /** 0 = Sunday. */
   dow: number;
@@ -236,7 +238,7 @@ export function buildModel(ds: Dataset, tables: Tables, brand: BrandId): BrandMo
     const f = figuresOf(p, formatOf(p));
     allFigures.push(f);
     posts.push({
-      id: `${p.platform}:${p.postId}`, brand, inCalendar: false, title: p.title || '(no title)', date: f.created, month: f.created.slice(0, 7),
+      id: `${p.platform}:${p.postId}`, brand, inCalendar: false, title: p.title || '(no title)', date: f.created, month: cycleOf(f.created),
       dow: dayOfWeek(f.created), task: null, taskCode: null, pillar: null, peg: null, format: f.format, series: null,
       status: 'published', bau: false, platforms: [p.platform], links: { [p.platform]: p.link }, figures: [f]
     });
@@ -254,7 +256,7 @@ function calendarPost(c: DatasetPost, figures: Figures[], format: string, taskNa
   const status: Status = c.status && normalise(c.status) === normalise(DROPPED) ? 'dropped'
     : figures.length || (c.status && normalise(c.status) === normalise(PUBLISHED)) ? 'published' : 'not-yet';
   return {
-    id: c.key, brand: c.brand, inCalendar: true, title: c.title ?? '(no title)', date: c.date, month: c.month, dow: dayOfWeek(c.date),
+    id: c.key, brand: c.brand, inCalendar: true, title: c.title ?? '(no title)', date: c.date, month: cycleOf(c.date), dow: dayOfWeek(c.date),
     task: code ? taskName.get(code) ?? c.commsTask : null, taskCode: c.commsTask, pillar: c.pillar, peg: c.peg, format, series: c.series,
     status, bau: !!c.peg && !!code && bauCodes.has(code) && !!c.countsAsBau && !c.beforeBauStart,
     platforms: c.platforms.map((e) => FROM_CALENDAR[e.platform]).filter((x): x is Platform => !!x),

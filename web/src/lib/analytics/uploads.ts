@@ -63,6 +63,7 @@ const nextMonth = (month: string) => {
   return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
 };
 const lastDayOf = (month: string) => addDays(`${nextMonth(month)}-01`, -1);
+import { cycleOf, cycleRange, isWholeCycle, lastDoneCycle } from './cycle';
 /** True when the period is exactly one calendar month. */
 export const isWholeMonth = (from: string, to: string) => from.endsWith('-01') && to === lastDayOf(monthOf(from));
 
@@ -161,9 +162,10 @@ export async function publishAnalyticsFile(
 /** Gaps, overlaps and odd periods this upload brings, against the ones before it. */
 function coverageWarnings(data: CleanedExport, history: AnalyticsUploadInfo[], spec: FileSpec | undefined): string[] {
   const out: string[] = [];
-  if (spec?.rule === 'month') {
-    if (!isWholeMonth(data.from, data.to)) {
-      out.push(`This export covers ${data.from} to ${data.to}. ${exportLabel(data.platform, data.file)} exports should cover one calendar month (e.g. 1–30 September), so the months add up; this one is kept, but only whole months are counted.`);
+  if (spec?.rule === 'cycle') {
+    if (!isWholeCycle(data.from, data.to)) {
+      const c = cycleRange(cycleOf(data.to));
+      out.push(`This export covers ${data.from} to ${data.to}. ${exportLabel(data.platform, data.file)} exports should cover one cycle, the 25th to the 24th (e.g. ${c.from} to ${c.to}), so the cycles add up; this one is kept, but only whole cycles are counted month by month.`);
     }
     return out;
   }
@@ -269,14 +271,14 @@ function coverageOf(uploads: AnalyticsUploadInfo[], brand: BrandId, platform: Pl
   const mine = uploads.filter((u) => u.brand === brand && u.platform === platform && u.file === f.id).sort((a, b) => a.from.localeCompare(b.from));
   const gaps: Coverage['gaps'] = [];
   let end: string | null = null;
-  if (f.rule === 'month') {
-    // Whole months only; a month with no upload between the first and the last is a gap.
-    const months = new Set(mine.filter((u) => isWholeMonth(u.from, u.to)).map((u) => monthOf(u.from)));
-    const sorted = [...months].sort();
+  if (f.rule === 'cycle') {
+    // Whole cycles only; a cycle with no upload between the first and the last is a gap.
+    const cycles = new Set(mine.filter((u) => isWholeCycle(u.from, u.to)).map((u) => cycleOf(u.to)));
+    const sorted = [...cycles].sort();
     for (let m = sorted[0]; m && m <= sorted.at(-1)!; m = nextMonth(m)) {
-      if (!months.has(m)) gaps.push({ from: `${m}-01`, to: lastDayOf(m) });
+      if (!cycles.has(m)) gaps.push(cycleRange(m));
     }
-    end = sorted.length ? lastDayOf(sorted.at(-1)!) : null;
+    end = sorted.length ? cycleRange(sorted.at(-1)!).to : null;
   } else {
     for (const u of mine) {
       if (f.rule === 'rolling' && end && u.from > addDays(end, 1)) gaps.push({ from: addDays(end, 1), to: addDays(u.from, -1) });
@@ -311,10 +313,10 @@ export const ageInDays = (c: Coverage, today: string) => (c.to ? daysBetween(c.t
 
 /**
  * Whether a file is up to date on `today`: rolling and summary exports within about a month,
- * monthly exports once last month is in.
+ * cycle exports once the cycle that last ended is in.
  */
 export function isDue(c: Coverage, today: string): boolean {
   if (!c.to) return !c.optional;
-  if (c.rule === 'month') return c.to < lastDayOf(monthOf(addDays(`${monthOf(today)}-01`, -1)));
+  if (c.rule === 'cycle') return c.to < cycleRange(lastDoneCycle(today)).to;
   return daysBetween(c.to, today) > 40;
 }

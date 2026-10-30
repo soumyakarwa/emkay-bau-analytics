@@ -77,6 +77,16 @@
 </section>
 {/if}
 
+{#if V.hasSettledSince}
+<section class="sect">
+<h2>Settled since last review</h2>
+<p class="h3sub">Posts from the last days of {V.prevName}’s cycle were still settling (less than 7 days old) at the last review. They have settled now.</p>
+<div class="card">
+{#each V.settledSince as r}<div class="prow"><div><p class="pt">{r.title}</p><p class="pm">{r.meta}</p></div><span></span><span class="pv"><span class={r.cls}>{r.v}</span></span></div>{/each}
+</div>
+</section>
+{/if}
+
 {#if V.noFw}
 <section class="sect"><div class="card"><p style="margin: 0; line-height: 1.5">{V.noFwText} Growth and audience are below.</p></div></section>
 {/if}

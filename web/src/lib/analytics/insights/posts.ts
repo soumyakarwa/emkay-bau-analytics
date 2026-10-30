@@ -4,7 +4,7 @@
 import type { PostsInput } from './inputs';
 import { NO_FORMAT } from './view';
 import {
-  DAYS, PLATFORMS, PLAT_COLORS, PLAT_LETTER, fx, median, monthDone, monthLabel, n0, pct, plural, segs,
+  DAYS, PLATFORMS, PLAT_COLORS, PLAT_LETTER, fx, median, cycleSpan, tidyPeriod, monthDone, monthLabel, n0, pct, plural, segs,
   type PlatformName, type SetState, type State, type VPost
 } from './view';
 
@@ -29,7 +29,7 @@ export function postsView(input: PostsInput, S: State, set: SetState): any {
   const inP = pp === 'ytd' ? months.map((_, i) => i) : pp === '3m' ? months.map((_, i) => i).filter((i) => i >= last - 2) : [Number(pp.slice(1))];
   const periods = segs([...short.map((m, i): [string, string] => ['m' + i, m]), ['3m', 'Last 3 months'], ['ytd', 'Year so far']], pp, (id) => set({ pPeriod: id, pBrand: input.brand }));
   const pShort = pp === 'ytd' ? 'year so far' : pp === '3m' ? 'last 3 months' : yr(plain(full[inP[0]]));
-  const periodText = (pp === 'ytd' ? 'Year so far: ' : pp === '3m' ? 'Last 3 months: ' : '') + (inP.length > 1 ? yr(full[inP[0]]) + ' to ' + full[last] : full[inP[0]]);
+  const periodText = (pp === 'ytd' ? 'Year so far: ' : pp === '3m' ? 'Last 3 months: ' : '') + (inP.length > 1 ? yr(full[inP[0]]) + ' to ' + full[last] : full[inP[0]]) + ` (${cycleSpan(months[inP[0]]).split('–')[0]}–${cycleSpan(months[inP[inP.length - 1]]).split('–')[1]})`;
   const PPl = pub.filter((p) => inP.includes(p.m));
   const ranked = PPl.filter((p) => !p.settling && p.ratio !== null).sort((a, b) => (b.ratio as number) - (a.ratio as number));
 
@@ -146,7 +146,7 @@ export function postsView(input: PostsInput, S: State, set: SetState): any {
   }
 
   return {
-    hasPosts: true, noPosts: false, periods, periodText, pShort,
+    hasPosts: true, noPosts: false, periods, periodText: tidyPeriod(periodText), pShort,
     rankedNote: ranked.length < 10 ? `Only ${ranked.length} settled posts in this period, so the two lists may overlap.` : `${ranked.length} settled posts in this period.`,
     best, worst, traits, settlingRows, settlingMore, hasSettling: settlingRows.length > 0,
     yt, ytNone: yt.length === 0, hasYt: pub.some((p) => p.fig.YouTube), pctGrid, ytPts, ytLine: ytPts.map((x) => x.x + ',' + x.y).join(' '), monthX, ytCall, ytTrendAria: 'Median share of YouTube videos watched by month: ' + ytPts.map((x) => x.label).join(', '),

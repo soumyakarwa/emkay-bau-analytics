@@ -5,7 +5,8 @@ import { brandById, type BrandId } from '../../brands';
 import { normalise } from '../../workbook/contract';
 import { followerTotals, type FollowerCount } from '../followers';
 import type { Platform } from '../rows';
-import { monthlyTotals, type Tables } from '../tables';
+import { cycleOf, isWholeCycle } from '../cycle';
+import { dailySeries, type Tables } from '../tables';
 import { isWholeMonth } from '../uploads';
 import { PLATFORM_IDS, PLATFORM_NAMES, type BrandModel, type Figures, type Post } from './model';
 import { AUDIENCES, FINANCIAL_SERVICES, GOALS, SENIORITY_GROUPS, SENIORITY_ORDER } from './settings';
@@ -67,8 +68,17 @@ function withEpisodes(posts: VPost[]): VPost[] {
 }
 
 const brandName = (b: BrandId) => brandById(b)?.name ?? b;
-/** The month the figures run to: the newest export's, or today's. */
-const nowMonth = (m: BrandModel, today: string) => (m.asOf ?? today).slice(0, 7);
+/** The cycle the figures run to: the newest export's, or today's. */
+const nowMonth = (m: BrandModel, today: string) => cycleOf(m.asOf ?? today);
+/** A daily figure added up per cycle (YYYY-MM → total), counting only days that have it. */
+function monthlyTotals(t: Tables, brand: BrandId, platform: Platform, file: string, column: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const { date, value } of dailySeries(t, brand, platform, file, column)) {
+    if (value === null) continue;
+    out.set(cycleOf(date), (out.get(cycleOf(date)) ?? 0) + value);
+  }
+  return out;
+}
 
 // ---------- Framework ----------
 
@@ -177,13 +187,13 @@ const pick = (map: Map<string, number>, months: string[]) => months.map((mo) => 
 function addSeries(...xs: (number | null)[][]): (number | null)[] {
   return xs[0].map((_, i) => (xs.some((x) => x[i] !== null) ? xs.reduce((s, x) => s + num(x[i]), 0) : null));
 }
-/** Whole-month period totals (YouTube, Instagram overview): month → value. */
+/** Whole-cycle period totals (YouTube, Instagram overview): cycle → value. Other periods don't add up into cycles. */
 function wholeMonths(t: Tables, brand: BrandId, platform: Platform, file: string, column: string): Map<string, number> {
   const out = new Map<string, number>();
   for (const s of t.totals) {
-    if (s.brand !== brand || s.platform !== platform || s.file !== file || !isWholeMonth(s.from, s.to)) continue;
+    if (s.brand !== brand || s.platform !== platform || s.file !== file || !isWholeCycle(s.from, s.to)) continue;
     const v = s.values[column];
-    if (typeof v === 'number') out.set(s.from.slice(0, 7), v);
+    if (typeof v === 'number') out.set(cycleOf(s.to), v);
   }
   return out;
 }
@@ -199,7 +209,7 @@ export function growthInput(m: BrandModel, counts: FollowerCount[], today: strin
     const map = new Map<string, number>();
     for (const p of m.posts) for (const f of p.figures) if (f.platform === platform) {
       const v = key(f);
-      if (v !== null) map.set(f.created.slice(0, 7), (map.get(f.created.slice(0, 7)) ?? 0) + v);
+      if (v !== null) map.set(cycleOf(f.created), (map.get(cycleOf(f.created)) ?? 0) + v);
     }
     return pick(map, months);
   };
@@ -226,7 +236,7 @@ export function growthInput(m: BrandModel, counts: FollowerCount[], today: strin
       org = mt('youtube', 'content', 'Views');
       inter = mt('youtube', 'content', 'Likes');
       hours = pick(wholeMonths(t, b, 'youtube', 'content', 'Watch time (hours)'), months);
-      if (org.some((v) => v !== null)) notes.push('YouTube subscribers and watch hours come from whole-month exports; interactions are likes.');
+      if (org.some((v) => v !== null)) notes.push('YouTube subscribers and watch hours come from exports covering one whole cycle (25th to 24th); interactions are likes.');
     } else {
       const ovViews = wholeMonths(t, b, 'instagram', 'overview', 'Views');
       gains = pick(wholeMonths(t, b, 'instagram', 'overview', 'New Followers'), months);
@@ -234,10 +244,10 @@ export function growthInput(m: BrandModel, counts: FollowerCount[], today: strin
       org = months.map((mo, i) => (ovViews.has(mo) ? (ovViews.get(mo) as number) : fromPosts[i]));
       inter = postSums('instagram', (f) => f.interactions);
       if (fromPosts.some((v) => v !== null)) notes.push('Instagram views and interactions are added up from its posts, by the month they went out.');
-      if (!gains.some((g) => g !== null)) notes.push('Instagram’s exports so far give new followers only for longer periods, not month by month.');
+      if (!gains.some((g) => g !== null)) notes.push('Instagram’s new followers come from its overview export for one whole cycle (25th to 24th); none uploaded yet.');
     }
-    const totals = followerTotals(t, counts, b, platform, months);
-    const total = months.map((mo) => totals.find((x) => x.date.slice(0, 7) === mo)?.total ?? null);
+    const totals = followerTotals(t, counts, b, platform, months, 45, 'cycle');
+    const total = months.map((mo) => totals.find((x) => cycleOf(x.date) === mo)?.total ?? null);
     const anchor = counts.filter((c) => c.brand === b && c.platform === platform).sort((a, c) => a.date.localeCompare(c.date)).at(-1) ?? null;
     if (!anchor) notes.push(`No follower count noted for ${PLATFORM_NAMES[platform]} yet: add one on the Upload page to see the total.`);
     const has = [gains, org, inter].some((s) => s.some((v) => v !== null)) || !!anchor;
@@ -247,7 +257,7 @@ export function growthInput(m: BrandModel, counts: FollowerCount[], today: strin
     };
   });
 
-  const postsPerMonth = months.map((mo) => m.posts.reduce((s, p) => s + p.figures.filter((f) => f.created.slice(0, 7) === mo).length, 0));
+  const postsPerMonth = months.map((mo) => m.posts.reduce((s, p) => s + p.figures.filter((f) => cycleOf(f.created) === mo).length, 0));
   const posts = m.posts.filter((p) => p.figures.length && months.includes(p.month)).map(toVPost).map(slim);
 
   const bench = t.benchmark.filter((r) => r.brand === b);
@@ -304,7 +314,7 @@ export function audienceInput(m: BrandModel, today: string): AudienceInput {
   const followers = snapshots(t, b, 'linkedin', 'followers').filter((s, i, all) => all.findIndex((x) => x.to === s.to) === i);
   const visitors = snapshots(t, b, 'linkedin', 'visitors').filter((s, i, all) => all.findIndex((x) => x.to === s.to) === i);
   const yt = snapshots(t, b, 'youtube', 'views');
-  const ytMonth = yt.filter((s) => isWholeMonth(s.from, s.to)).at(-1) ?? yt.at(-1) ?? null;
+  const ytMonth = yt.filter((s) => isWholeCycle(s.from, s.to)).at(-1) ?? yt.filter((s) => isWholeMonth(s.from, s.to)).at(-1) ?? yt.at(-1) ?? null;
   const nf = monthlyTotals(t, b, 'linkedin', 'followers', 'Total followers');
   const uv = monthlyTotals(t, b, 'linkedin', 'visitors', 'Total unique visitors (total)');
   const uvOverview = monthlyTotals(t, b, 'linkedin', 'visitors', 'Overview unique visitors (total)');

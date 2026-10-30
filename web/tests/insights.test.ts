@@ -52,7 +52,7 @@ function dataset(): Dataset {
       post(2, '2026-09-09', 'Myths', 'Opinions', 'TL'),
       post(3, '2026-09-16', 'Data', 'Opinions', 'TL'),
       post(4, '2026-09-23', 'People', 'Culture', 'BB'),
-      post(5, '2026-09-30', 'Data', 'Opinions', 'TL', 'Dropped'),
+      post(5, '2026-09-20', 'Data', 'Opinions', 'TL', 'Dropped'),
       post(6, '2026-10-20', 'People', 'Culture', 'BB', 'Planned')
     ],
     moments: []
@@ -235,5 +235,14 @@ describe('helpers', () => {
     expect(p).toMatchObject({ platforms: ['LinkedIn'], ratio: 2, impr: 1000, links: { LinkedIn: li(1) } });
     // LinkedIn counts carousel swipes as clicks, so a carousel has no clicks measure.
     expect(p.action).toBeNull();
+  });
+});
+
+describe('cycles', () => {
+  it('puts a post from the 25th on in the next month’s cycle', () => {
+    const ds = dataset();
+    (ds.posts as any[]).push({ ...ds.posts[0], id: 'Sep!7', key: 'im:2027:Sep!7', date: '2026-09-27', month: '2026-09', platforms: [] });
+    const p = buildModel(ds, tables(), 'im').posts.find((x) => x.id.endsWith('!7'));
+    expect(p?.month).toBe('2026-10');
   });
 });

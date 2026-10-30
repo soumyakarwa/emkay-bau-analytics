@@ -168,20 +168,23 @@ describe('uploads across platforms', () => {
     expect(x.upload!.warnings).toContain('The site does not know "EmkayWealth" yet. Check it is Emkay Wealth Management\'s account.');
   });
 
-  it('YouTube: saved by platform, a month at a time; other periods are kept with a warning', async () => {
+  it('YouTube: saved by platform, a cycle (25th to 24th) at a time; other periods are kept with a warning', async () => {
     const store = memoryStore();
-    const sep = youTubeContentZip('2026-09-01', '2026-09-30', [{ id: 'AbCdEfGhIjK', title: 't', published: 'Sep 24, 2026', views: 203 }]);
+    const sep = youTubeContentZip('2026-08-25', '2026-09-24', [{ id: 'AbCdEfGhIjK', title: 't', published: 'Sep 24, 2026', views: 203 }]);
     const r = await publishAnalyticsFile(store, sep.bytes, { fileName: sep.name, forBrand: 'global', now: at('2026-10-03') });
     expect(r.upload).toMatchObject({ platform: 'youtube', file: 'content', warnings: [] });
     expect((await store.list('analytics/global/youtube/content/')).map((k) => k.replace(/.*\./, '.'))).toEqual(expect.arrayContaining(['.json', '.b64']));
     const year = youTubeContentZip('2025-10-14', '2026-10-13', [{ id: 'AbCdEfGhIjK', title: 't', published: 'Sep 24, 2026', views: 900 }]);
     const y = await publishAnalyticsFile(store, year.bytes, { fileName: year.name, forBrand: 'global' });
-    expect(y.upload!.warnings).toEqual([expect.stringMatching(/should cover one calendar month.*only whole months are counted/)]);
+    expect(y.upload!.warnings).toEqual([expect.stringMatching(/should cover one cycle, the 25th to the 24th \(e\.g\. 2026-09-25 to 2026-10-24\).*only whole cycles are counted/)]);
+    const month = youTubeContentZip('2026-09-01', '2026-09-30', [{ id: 'AbCdEfGhIjK', title: 't', published: 'Sep 24, 2026', views: 1 }]);
+    const m = await publishAnalyticsFile(store, month.bytes, { fileName: month.name, forBrand: 'global' });
+    expect(m.upload!.warnings).toEqual([expect.stringMatching(/should cover one cycle/)]);
   });
 
-  it('YouTube: months add up, and a missing month shows as a gap', async () => {
+  it('YouTube: cycles add up, and a missing cycle shows as a gap', async () => {
     const store = memoryStore();
-    for (const [from, to, views] of [['2026-07-01', '2026-07-31', 50], ['2026-09-01', '2026-09-30', 30]] as const) {
+    for (const [from, to, views] of [['2026-06-25', '2026-07-24', 50], ['2026-08-25', '2026-09-24', 30]] as const) {
       const z = youTubeContentZip(from, to, [{ id: 'AbCdEfGhIjK', title: 't', published: 'Jul 2, 2026', views }]);
       await publishAnalyticsFile(store, z.bytes, { fileName: z.name, forBrand: 'global', now: at(to) });
     }
@@ -190,13 +193,13 @@ describe('uploads across platforms', () => {
 
     const t = buildTables(await loadAnalyticsUploads(store));
     const [video] = latestPosts(t.posts);
-    expect(video).toMatchObject({ postId: 'yt:AbCdEfGhIjK', views: 80, from: '2026-07-01', to: '2026-09-30' }); // not the 999 from the year export
-    expect(postHistory(t.posts, 'global', 'yt:AbCdEfGhIjK').map((p) => [p.from, p.views])).toEqual([['2026-07-01', 50], ['2026-09-01', 30]]);
+    expect(video).toMatchObject({ postId: 'yt:AbCdEfGhIjK', views: 80, from: '2026-06-25', to: '2026-09-24' }); // not the 999 from the year export
+    expect(postHistory(t.posts, 'global', 'yt:AbCdEfGhIjK').map((p) => [p.from, p.views])).toEqual([['2026-06-25', 50], ['2026-08-25', 30]]);
 
     const content = coverage(await listAnalyticsUploads(store), 'global').find((p) => p.platform === 'youtube')!.files.find((f) => f.file === 'content')!;
-    expect(content).toMatchObject({ uploads: 3, to: '2026-09-30', gaps: [{ from: '2026-08-01', to: '2026-08-31' }] });
-    expect(isDue(content, '2026-10-15')).toBe(false); // September is in
-    expect(isDue(content, '2026-11-02')).toBe(true); // October is not
+    expect(content).toMatchObject({ uploads: 3, to: '2026-09-24', gaps: [{ from: '2026-07-25', to: '2026-08-24' }] });
+    expect(isDue(content, '2026-10-15')).toBe(false); // September's cycle is in
+    expect(isDue(content, '2026-10-26')).toBe(true); // October's (25 Sep–24 Oct) is not
   });
 
   it('daily figures from two exports of the same days merge column by column', async () => {

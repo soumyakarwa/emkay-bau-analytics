@@ -2,7 +2,7 @@
 // month, how much growth is paid, and peers. Months a platform's exports don't cover show as gaps.
 
 import type { GrowthInput, PlatformSeries } from './inputs';
-import { PLAT_COLORS, PLAT_LETTER, fx, kfmt, monthDone, monthLabel, n0, plural, segs, sum, type SetState, type State, type VPost } from './view';
+import { PLAT_COLORS, PLAT_LETTER, fx, kfmt, cycleSpan, tidyPeriod, monthDone, monthLabel, n0, plural, segs, sum, type SetState, type State, type VPost } from './view';
 
 const nn = (v: number | null | undefined) => (typeof v === 'number' ? v : 0);
 const any = (xs: (number | null)[]) => xs.some((v) => v !== null);
@@ -220,7 +220,7 @@ export function growthView(input: GrowthInput, S: State, set: SetState): any {
   }
 
   return {
-    hasData: true, noData: false, periodText: `${GFULL[0]} to ${GFULL[L]}`, tiles, fol, curName, prevName,
+    hasData: true, noData: false, periodText: tidyPeriod(`${GFULL[0]} to ${GFULL[L]} (${cycleSpan(months[0], true).split(' – ')[0]} – ${cycleSpan(months[L], true).split(' – ')[1]})`), tiles, fol, curName, prevName,
     rPlats, reach, reachGrid, reachStand, reachAria,
     eng, perPost: perPost.filter((d) => d.has), perPostAll: perPost, perPostLine: perPost.filter((d) => d.has).map((d) => d.x + ',' + d.y).join(' '), engStand, engAria,
     hasYt, noYt: !hasYt, ytViews, ytHours, ytStand, ytViewsAria: 'YouTube views by month: ' + yv.map((v, i) => GY[i] + ' ' + n0(v)).join(', '), ytHoursAria: 'YouTube watch hours by month: ' + yh.map((v, i) => GY[i] + ' ' + n0(v)).join(', '),

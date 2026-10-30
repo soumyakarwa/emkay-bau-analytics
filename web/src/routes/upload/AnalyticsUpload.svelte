@@ -7,6 +7,7 @@
   import { invalidateAll } from '$app/navigation';
   import type { FollowerCount } from '$lib/analytics/followers';
   import type { AnalyticsUploadInfo, Coverage, PlatformCoverage } from '$lib/analytics/uploads';
+  import ExportGuide from './ExportGuide.svelte';
   import { brandName, day, exportLabel, failureOf, when } from './format';
 
   type Status = Coverage & { due: boolean };
@@ -175,9 +176,11 @@
   const status = (f: Status) =>
     !f.uploads ? (f.optional ? 'Not used' : 'Not uploaded yet')
       : f.gaps.length ? `⚠ Gap: ${f.gaps.map((g) => `${day(g.from)} – ${day(g.to)}`).join(', ')}`
-      : f.due ? (f.rule === 'month' ? '⚠ Last month not uploaded yet' : '⚠ Over a month old: time for a new export')
+      : f.due ? (f.rule === 'cycle' ? '⚠ The last cycle (25th–24th) not uploaded yet' : '⚠ Over a month old: time for a new export')
       : 'Up to date';
 </script>
+
+<ExportGuide />
 
 <div
   class="card dropzone"

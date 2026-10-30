@@ -6,8 +6,9 @@ import { frameworkView } from './framework';
 import { growthView } from './growth';
 import type { AudienceInput, FwInput, GrowthInput, PostsInput } from './inputs';
 import { postsView } from './posts';
-import { RESULT } from './settings';
-import { monthDone, monthLabel, TASK_COLORS } from './view';
+import { cycleRange } from '../cycle';
+import { RESULT, SETTLE_DAYS } from './settings';
+import { cycleSpan, monthDone, monthLabel, TASK_COLORS } from './view';
 
 export interface OverviewInput { fw: FwInput; posts: PostsInput; growth: GrowthInput; audience: AudienceInput }
 const noop = () => {};
@@ -89,6 +90,14 @@ export function overviewView(input: OverviewInput, href: (page: string, tab?: st
   }
   if (PP?.hasPosts) { best = PP.best.slice(0, 3); worst = PP.worst.slice(0, 3); }
 
+  // Posts that were still settling at the last review (the previous cycle's last week), now ranked.
+  const prev = input.posts.months[pIdx - 1];
+  const prevEnd = prev ? cycleRange(prev).to : null;
+  const settledSince = prevEnd ? input.posts.posts
+    .filter((p) => p.month === prev && p.ratio !== null && !p.settling && Date.parse(prevEnd) - Date.parse(p.date) < (SETTLE_DAYS - 1) * 86400000 + 1)
+    .sort((a, b) => (b.ratio as number) - (a.ratio as number))
+    .map((p) => ({ title: p.title, meta: [`${p.day} ${monthLabel(p.date.slice(0, 7)).short}`, p.format, p.peg ?? (p.inCal ? null : 'not in the calendar')].filter(Boolean).join(' · '), v: (p.ratio as number).toFixed(1) + '×', cls: 'chip ' + ((p.ratio as number) >= 1 ? 'c-up' : 'c-down') })) : [];
+
   // Audience at a glance.
   let audRows: any[] = [], senRows: any[] = [], fsNow = '';
   if (A.hasData) {
@@ -100,8 +109,8 @@ export function overviewView(input: OverviewInput, href: (page: string, tab?: st
   }
 
   return {
-    name: input.fw.brandName, mName, periodText: `Monthly review: ${monthLabel(month).full}` + (inProgress ? ` (${inProgress} is still in progress)` : ''),
+    name: input.fw.brandName, mName, periodText: `Monthly review: ${monthLabel(month).full} (${cycleSpan(month)})` + (inProgress ? ` · ${inProgress}’s cycle is still in progress` : ''),
     tiles, flags, flagCount: flags.length, noFlags: flags.length === 0, hasFw: !!F?.hasFramework, noFw: !F?.hasFramework, noFwText: input.fw.noFwText,
-    fwRows, ideas, best, worst, hasPosts: best.length > 0, audRows, senRows, fsNow, hasAud: A.hasData, audNote: A.single ? A.historyNote : ''
+    fwRows, ideas, best, worst, hasPosts: best.length > 0, settledSince, hasSettledSince: settledSince.length > 0, prevName: prev ? monthLabel(prev).name : '', audRows, senRows, fsNow, hasAud: A.hasData, audNote: A.single ? A.historyNote : ''
   };
 }

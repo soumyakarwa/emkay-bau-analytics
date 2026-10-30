@@ -1,3 +1,5 @@
+import { cycleDates, cycleDone } from '../cycle';
+
 // What the analytics pages share in the browser: the post record every page is built from,
 // colours, number formats and month labels. Nothing here reads the store, so the pages can work
 // out their charts in the browser and switch views instantly.
@@ -109,11 +111,12 @@ export function monthRange(from: string, to: string): string[] {
   for (let m = from; m <= to && out.length < 240; m = addMonths(m, 1)) out.push(m);
   return out;
 }
-/** Is the month over by `asOf` (YYYY-MM-DD)? */
-export function monthDone(month: string, asOf: string) {
-  const [y, m] = month.split('-').map(Number);
-  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) <= asOf;
-}
+/** Has the cycle (25th to 24th, named after the month it ends in) ended by `asOf` (YYYY-MM-DD)? */
+export const monthDone = cycleDone;
+/** "October 2026 (so far) (25 Sep–24 Oct)" → "October 2026 (25 Sep–24 Oct, so far)". */
+export const tidyPeriod = (t: string) => (t.includes(' (so far)') ? t.replace(' (so far)', '').replace(/\)$/, ', so far)') : t);
+/** "25 Sep–24 Oct": the days a cycle covers. */
+export const cycleSpan = (cycle: string, years = false) => cycleDates(cycle, years);
 
 /** A row of toggle buttons. */
 export function segs<T extends string>(options: [T, string][], current: T, pick: (id: T) => void, base = 'seg') {

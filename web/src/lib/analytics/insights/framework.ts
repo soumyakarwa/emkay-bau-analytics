@@ -2,10 +2,11 @@
 // platforms (C), in which formats, at which times and in which series (D), and what to change (E).
 // Works in the browser from the posts the server sends; `set` changes the page's toggles.
 
+import { cycleOf } from '../cycle';
 import type { FwInput } from './inputs';
 import { MEASURE_LABEL, OUTCOMES, RESULT, DORMANT_MONTHS, type OutcomeMeasure } from './settings';
 import {
-  DAYS, PLATFORMS, PLAT_COLORS, PLAT_LETTER, TASK_COLORS, TASK_TEXT, TASK_TEXT_COLORS, fx, median, monthDone, monthLabel, pct, plural,
+  DAYS, PLATFORMS, PLAT_COLORS, PLAT_LETTER, TASK_COLORS, TASK_TEXT, TASK_TEXT_COLORS, fx, median, cycleSpan, tidyPeriod, monthDone, monthLabel, pct, plural,
   segs, type PlatformName, type SetState, type State, type VPost
 } from './view';
 
@@ -19,7 +20,7 @@ export function fwMonths(months: string[], asOf: string) {
   const short = months.map((m) => monthLabel(m).short);
   const full = months.map((m) => monthLabel(m).full + (monthDone(m, asOf) ? '' : ' (so far)'));
   // Last quarter: the latest calendar quarter that has ended, within these months.
-  const cur = asOf.slice(0, 7);
+  const cur = cycleOf(asOf);
   const [y, mo] = cur.split('-').map(Number);
   const qStartMonth = Math.floor((mo - 1) / 3) * 3 + 1;
   const qEnd = new Date(Date.UTC(y, qStartMonth - 1, 0)).toISOString().slice(0, 7);
@@ -60,7 +61,8 @@ export function frameworkView(input: FwInput, S: State, set: SetState): any {
   const periodsAB = segs(pOpts, period, (id) => set({ fwPeriod: id, fwBrand: input.brand }));
   const yr = (s: string) => s.replace(/ \d{4}/, '');
   let periodShort = period === 'ytd' ? 'year so far' : period === 'q' ? 'last quarter' : yr(plain(fw.full[inPeriod[0]]));
-  const periodTextAB = period === 'ytd' ? 'Year so far: ' + yr(fw.full[0]) + ' to ' + fw.full[last] : period === 'q' ? 'Last quarter: ' + fwm.lastQFull : fw.full[inPeriod[0]];
+  const span = (a: number, b: number) => cycleSpan(input.months[a]).split('–')[0] + '–' + cycleSpan(input.months[b]).split('–')[1];
+  const periodTextAB = (period === 'ytd' ? 'Year so far: ' + yr(fw.full[0]) + ' to ' + fw.full[last] : period === 'q' ? 'Last quarter: ' + fwm.lastQFull : fw.full[inPeriod[0]]) + ` (${span(inPeriod[0], inPeriod[inPeriod.length - 1])})`;
   const pubAll = posts.filter((p) => p.status === 'published');
   let pub = pubAll;
   let P = pub.filter((p) => inPeriod.includes(p.m));
@@ -71,7 +73,7 @@ export function frameworkView(input: FwInput, S: State, set: SetState): any {
   const cdeMonths = fw.months.map((_, i) => i).filter((i) => cdeP === 'ytd' || i >= last - 2);
   const cdeShort = cdeP === 'ytd' ? 'year so far' : 'last 3 months';
   const periods = isCDE ? segs([['3m', 'Last 3 months'], ['ytd', 'Year so far']], cdeP, (id) => set({ cdePeriod: id })) : periodsAB;
-  const periodText = isCDE ? (cdeP === 'ytd' ? 'Year so far: ' : 'Last 3 months: ') + yr(fw.full[cdeMonths[0]]) + ' to ' + fw.full[last] : periodTextAB;
+  const periodText = isCDE ? (cdeP === 'ytd' ? 'Year so far: ' : 'Last 3 months: ') + yr(fw.full[cdeMonths[0]]) + ' to ' + fw.full[last] + ` (${span(cdeMonths[0], last)})` : periodTextAB;
   const tabs = segs([['A', 'A · Split'], ['B', 'B · Performance'], ['C', 'C · Platforms'], ['D', 'D · Format, timing, series'], ['E', 'E · What to change']], tab, (id) => set({ fwTab: id }), 'tab');
   const total = P.length || 1;
   const taskKeys = fw.tasks.map((t, i) => ({ name: t.name, color: COLORS[i % COLORS.length] }));
@@ -642,7 +644,7 @@ export function frameworkView(input: FwInput, S: State, set: SetState): any {
   }
 
   return {
-    hasFramework: true as const, noFramework: false as const, noFwText: '', periods, periodText, periodShort: periodShortAB, cdeShort, taskKeys, months: fw.months, full: fw.full,
+    hasFramework: true as const, noFramework: false as const, noFwText: '', periods, periodText: tidyPeriod(periodText), periodShort: periodShortAB, cdeShort, taskKeys, months: fw.months, full: fw.full,
     tab, tabs, tabA: tab === 'A', tabB: tab === 'B', tabC: tab === 'C', tabD: tab === 'D', tabE: tab === 'E',
     a1Cols, a1Grid, a1Aria, a1Note: ' BAU began in ' + yr(plain(fw.full[0])) + ', so the chart starts there.',
     a2, a3, a3Grid, a3Sub, a4, a4None: a4.length === 0,

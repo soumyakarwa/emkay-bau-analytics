@@ -10,10 +10,10 @@ export interface FileSpec {
   optional: boolean;
   /**
    * rolling: export the last 365 days each month; newer exports update older figures.
-   * month: export the previous calendar month each month; the months add up.
+   * cycle: export the latest cycle (25th to 24th) each month; the cycles add up.
    * any: a summary for whatever period is exported.
    */
-  rule: 'rolling' | 'month' | 'any';
+  rule: 'rolling' | 'cycle' | 'any';
   /** Where to find it on the platform. */
   help: string;
 }
@@ -25,6 +25,8 @@ export interface PlatformSpec {
   calendarColumn: CalendarColumn;
   /** How to export, in one line, for the upload page. */
   routine: string;
+  /** Which dates to export. */
+  dates: 'year' | 'cycle';
   files: FileSpec[];
 }
 
@@ -32,6 +34,7 @@ export const PLATFORMS: PlatformSpec[] = [
   {
     id: 'linkedin', label: 'LinkedIn', calendarColumn: 'LinkedIn',
     routine: 'Each month, export the last 365 days. Page admin view → Analytics → each tab → Export.',
+    dates: 'year',
     files: [
       { id: 'content', label: 'Content', optional: false, rule: 'rolling', help: 'Analytics → Content → Export' },
       { id: 'followers', label: 'Followers', optional: false, rule: 'rolling', help: 'Analytics → Followers → Export' },
@@ -41,26 +44,29 @@ export const PLATFORMS: PlatformSpec[] = [
   },
   {
     id: 'youtube', label: 'YouTube', calendarColumn: 'YouTube',
-    routine: 'Each month, export the previous calendar month. YouTube Studio → Analytics → Advanced mode → each report → Export → CSV; upload the zips as they are.',
+    routine: 'Each month, export the cycle that just ended (25th to 24th): YouTube Studio → Analytics → Advanced mode → set a custom date range → each report → Export → CSV; upload the zips as they are.',
+    dates: 'cycle',
     files: [
-      { id: 'content', label: 'Content', optional: false, rule: 'month', help: 'Advanced mode → Content, with Likes, Comments added, Shares, Average percentage viewed and Subscribers gained/lost added' },
-      { id: 'traffic-source', label: 'Traffic source', optional: false, rule: 'month', help: 'Advanced mode → Traffic source' },
-      { id: 'geography', label: 'Geography', optional: true, rule: 'month', help: 'Advanced mode → Geography' },
-      { id: 'content-type', label: 'Content type', optional: true, rule: 'month', help: 'Advanced mode → Content type' }
+      { id: 'content', label: 'Content', optional: false, rule: 'cycle', help: 'Advanced mode → Content, with Likes, Comments added, Shares, Average percentage viewed and Subscribers gained/lost added' },
+      { id: 'traffic-source', label: 'Traffic source', optional: false, rule: 'cycle', help: 'Advanced mode → Traffic source' },
+      { id: 'geography', label: 'Geography', optional: true, rule: 'cycle', help: 'Advanced mode → Geography' },
+      { id: 'content-type', label: 'Content type', optional: true, rule: 'cycle', help: 'Advanced mode → Content type' }
     ]
   },
   {
     id: 'instagram', label: 'Instagram', calendarColumn: 'Instagram',
-    routine: 'Each month, export the last 365 days from Meta Business Suite → Insights. Upload the CSVs without opening them in Excel.',
+    routine: 'Each month, from Meta Business Suite → Insights: the posts for the last 365 days, and the overview for the cycle that just ended (25th to 24th). Upload the CSVs without opening them in Excel.',
+    dates: 'year',
     files: [
       { id: 'posts', label: 'Posts', optional: false, rule: 'rolling', help: 'Insights → Content → Export (one row per post)' },
-      { id: 'overview', label: 'Overview summary', optional: true, rule: 'any', help: 'Insights → Overview → Export' },
+      { id: 'overview', label: 'Overview summary', optional: true, rule: 'cycle', help: 'Insights → Overview → custom dates → Export' },
       { id: 'posts-summary', label: 'Posts summary', optional: true, rule: 'any', help: 'Insights → Content → Export summary' }
     ]
   },
   {
     id: 'x', label: 'X', calendarColumn: 'X',
     routine: 'Each month, export the last 365 days from X Analytics: the content and the account overview.',
+    dates: 'year',
     files: [
       { id: 'posts', label: 'Posts', optional: false, rule: 'rolling', help: 'Analytics → Content → Export' },
       { id: 'overview', label: 'Account overview', optional: false, rule: 'rolling', help: 'Analytics → Overview → Export' }
