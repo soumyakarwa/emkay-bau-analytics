@@ -149,11 +149,15 @@ and saves per impression; per view on YouTube) divided by the typical rate: the 
 brand's posts in the same format on the same platform over the last 6 months (the platform's
 posts of any format when there are fewer than 3). 1.0× is a typical post. A calendar post's result
 is the median of its platforms'; a part's result is the median of its posts'. Only organic posts
-at least 7 days old on the export day count. Calendar posts are matched to the exports by the post
+at least 7 days old on the export day count. On YouTube a video also needs at least 25 views
+(`MIN_VIEWS` in the settings): most of a channel's videos get a handful of views and no likes,
+which would make the typical video one with no interactions. Where even those mostly get no
+interactions, YouTube is left out of the results, and the Platforms tab and the Overview say so.
+Share watched is shown as extra YouTube detail, not as part of the score. Calendar posts are matched to the exports by the post
 ID in their platform links.
 
 **Settings** the team may want to change are in one file, `src/lib/analytics/insights/settings.ts`:
-the settle time, the typical window, the verdict thresholds, each comms task's outcome measure,
+the settle time, the typical window, YouTube's minimum views, the verdict thresholds, each comms task's outcome measure,
 **follower goals** (none yet; add one and Growth shows a goal line and whether the account is on
 pace), the target-audience rules, the financial-services industries and the seniority groups.
 

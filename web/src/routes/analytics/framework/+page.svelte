@@ -36,6 +36,7 @@
 <li><strong>Typical</strong> = the median interaction rate of the brand’s posts in that format on that platform over the last 6 months, so a LinkedIn carousel is measured against LinkedIn carousels.</li>
 <li><strong>1.0×</strong> = a typical post. <strong>1.5×</strong> = 50% more interaction than typical. <strong>0.7×</strong> = 30% less.</li>
 <li>A comms task, pillar or peg’s result is the median of its posts’ results, so one viral post can’t carry it.</li>
+<li><strong>YouTube</strong>: a video needs at least 25 views to be scored or to count towards the typical video. Most of a channel’s videos (clips, older uploads) get a handful of views and no likes; counting them would make the typical video one with no interactions, and nothing could be compared with it. If even the videos with 25+ views mostly get no interactions, YouTube is left out of the results, and the Platforms tab says so.</li>
 </ul>
 <p class="note" style="margin: 0">Sponsored posts are left out, and a month counts once its posts are 7 days old.</p>
 </details>
@@ -281,6 +282,7 @@
 <p class="sect-l">Part C</p>
 <h2>How does it differ by platform?</h2>
 <p class="h3sub">Results here are per platform: a post’s interaction rate on that platform against the typical rate for its format there (see “How we measure” at the top of the page). So 1.4× on Instagram means 40% more interaction than a typical Instagram post of that format, and platforms can be compared fairly.</p>
+{#if V.hasCNotes}<div class="card stand"><p class="dr-k" style="margin-bottom: 6px">Left out of these results</p>{#each V.cNotes as n}<p>{n.text}</p>{/each}</div>{/if}
 <div class="crow"><span class="clabel">Show</span>{#each V.cViews as v}<button class={v.cls} aria-pressed={v.pressed} onclick={v.pick}>{v.name}</button>{/each}</div>
 
 <p class="q" style="margin-top: 20px">C1</p>

@@ -64,7 +64,7 @@
 <section class="sect">
 <p class="q">YouTube</p>
 <h2>YouTube: how much of each video is watched ({V.pShort})</h2>
-<p class="h3sub">Average share of each video watched, longest-held first. The chart on the right is the median for each month.</p>
+<p class="h3sub">Average share of each video watched, longest-held first. The chart on the right is the median for each month. Share watched is shown here as extra detail; the × result is on likes, comments and shares, like every other platform, and videos with fewer than 25 views aren’t scored.</p>
 <div class="two">
 <div class="card">
 {#each V.yt as r}

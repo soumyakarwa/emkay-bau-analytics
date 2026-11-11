@@ -22,7 +22,7 @@ function fig(f: Figures): VFig {
     impr: f.impressions, likes: f.reactions, comments: f.comments, shares: f.shares, saves: f.saves, clicks: f.clicks,
     follows: f.follows, visits: f.profileVisits, watched: f.viewedPct, watchHours: f.watchHours,
     rate: f.rate === null ? null : f.rate * 100, typical: f.typical === null ? null : f.typical * 100, typicalBasis: f.typicalBasis,
-    result: f.result, settled: f.settled
+    result: f.result, settled: f.settled, why: f.why
   };
 }
 
@@ -47,6 +47,7 @@ export function toVPost(p: Post): VPost {
     ratio: p.result,
     pr: Object.fromEntries(figs.filter((f) => f.settled && f.result !== null).map((f) => [NAME(f.platform), f.result as number])),
     settling: figs.length > 0 && !p.settled,
+    why: p.result !== null || !figs.length ? null : figs.some((f) => f.why === 'settling') ? 'settling' : (figs.find((f) => f.why)?.why ?? null),
     impr,
     rateAll: p.rate === null ? null : p.rate * 100,
     deep: figs.length ? per1000(deepN, impr) : null,

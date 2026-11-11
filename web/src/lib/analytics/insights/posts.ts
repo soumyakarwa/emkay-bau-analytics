@@ -4,7 +4,7 @@
 import type { PostsInput } from './inputs';
 import { NO_FORMAT } from './view';
 import {
-  DAYS, PLATFORMS, PLAT_COLORS, PLAT_LETTER, fx, median, cycleSpan, tidyPeriod, monthDone, monthLabel, n0, pct, plural, segs,
+  DAYS, PLATFORMS, PLAT_COLORS, PLAT_LETTER, WHY_LABEL, fx, median, cycleSpan, tidyPeriod, monthDone, monthLabel, n0, pct, plural, segs,
   type PlatformName, type SetState, type State, type VPost
 } from './view';
 
@@ -110,10 +110,10 @@ export function postsView(input: PostsInput, S: State, set: SetState): any {
   const tPlats = segs([['all', 'All'], ...used.map((x): [string, string] => [x, x])], tPlat, (id) => set({ pPlat: id }));
   const tSorts = segs([['new', 'Newest'], ['best', 'Best result'], ['impr', 'Most impressions']], tSort, (id) => set({ pSort: id }));
   const needle = q.trim().toLowerCase();
-  const val = (p: PP) => (tPlat === 'all' ? { impr: p.impr, rate: p.rateAll, res: p.ratio } : { impr: fig(p, tPlat as PlatformName)?.impr ?? 0, rate: fig(p, tPlat as PlatformName)?.rate ?? null, res: p.pr[tPlat as PlatformName] ?? null });
+  const val = (p: PP) => (tPlat === 'all' ? { impr: p.impr, rate: p.rateAll, res: p.ratio, why: p.why } : { impr: fig(p, tPlat as PlatformName)?.impr ?? 0, rate: fig(p, tPlat as PlatformName)?.rate ?? null, res: p.pr[tPlat as PlatformName] ?? null, why: fig(p, tPlat as PlatformName)?.why ?? null });
   const rows = PPl.filter((p) => tPlat === 'all' || p.fig[tPlat as PlatformName]).filter((p) => !needle || [p.title, p.peg, p.pillar, p.format, p.task, p.series].join(' ').toLowerCase().includes(needle))
     .sort((a, b) => (tSort === 'best' ? (val(b).res ?? -1) - (val(a).res ?? -1) : tSort === 'impr' ? (val(b).impr ?? 0) - (val(a).impr ?? 0) : b.date.localeCompare(a.date)));
-  const tRows = rows.slice(0, 80).map((p) => { const v = val(p); const settling = p.settling || v.res === null; return { date: `${p.day} ${short[p.m]}`, title: p.title, sub: [[p.task, p.pillar, p.peg].filter(Boolean).join(' › ') || 'Not in the calendar', p.format].join(' · ') + (p.settling ? ' · still settling' : ''), plats: plats(p, tPlat === 'all' ? null : (tPlat as PlatformName)), impr: n0(v.impr), rate: v.rate === null ? '–' : v.rate.toFixed(1) + '%', result: p.settling ? 'settling' : fx(v.res), rcls: 'chip ' + (settling ? 'c-flat' : (v.res as number) >= 1 ? 'c-up' : 'c-down'), open: openPost(p), peek: `${p.title}. Click for its figures.` }; });
+  const tRows = rows.slice(0, 80).map((p) => { const v = val(p); const settling = p.settling || v.res === null; return { date: `${p.day} ${short[p.m]}`, title: p.title, sub: [[p.task, p.pillar, p.peg].filter(Boolean).join(' › ') || 'Not in the calendar', p.format].join(' · ') + (p.settling ? ' · still settling' : ''), plats: plats(p, tPlat === 'all' ? null : (tPlat as PlatformName)), impr: n0(v.impr), rate: v.rate === null ? '–' : v.rate.toFixed(1) + '%', result: v.res === null ? (v.why ? WHY_LABEL[v.why] : '–') : fx(v.res), rcls: 'chip ' + (settling ? 'c-flat' : (v.res as number) >= 1 ? 'c-up' : 'c-down'), open: openPost(p), peek: `${p.title}. Click for its figures.` }; });
   const tCount = `${plural(rows.length)}` + (needle ? ` matching “${q.trim()}”` : '') + (rows.length > 80 ? ', showing the first 80' : '') + '.';
 
   // The open post or list.
@@ -130,8 +130,8 @@ export function postsView(input: PostsInput, S: State, set: SetState): any {
     d = {
       dOpen: true, dIsPost: true, dIsList: false, dCls: 'drawer wide', dKicker: 'Post figures', dTitle: p.title,
       dMeta: `${p.day} ${monthLabel(p.month).full} · ` + ([p.task, p.pillar, p.peg].filter(Boolean).join(' › ') || 'Not in the calendar') + ` · ${p.format}` + (p.series ? ` · ${p.series}, episode ${p.ep ?? '?'}` : ''),
-      dChips: [p.settling ? { text: 'Still settling: out less than 7 days', cls: 'chip c-flat' } : p.ratio === null ? { text: 'No result yet', cls: 'chip c-flat' } : { text: fx(p.ratio) + ' overall result', cls: 'chip ' + (p.ratio >= 1 ? 'c-up' : 'c-down') }],
-      dRows: pls.map((pl) => { const f = p.fig[pl]!; return { pl: pl === 'YouTube' ? 'YouTube (views)' : pl, letter: PLAT_LETTER[pl], color: PLAT_COLORS[pl], impr: n0(f.impr), likes: n0(f.likes), comments: n0(f.comments), shares: n0(f.shares), saves: n0(f.saves), clicks: n0(f.clicks), rate: f.rate === null ? '–' : f.rate.toFixed(1) + '%', typical: f.typical === null ? '–' : f.typical.toFixed(1) + '%', result: f.settled ? fx(f.result) : 'settling', rcls: 'chip ' + (!f.settled || f.result === null ? 'c-flat' : f.result >= 1 ? 'c-up' : 'c-down') }; }),
+      dChips: [p.settling ? { text: 'Still settling: out less than 7 days', cls: 'chip c-flat' } : p.ratio === null ? { text: p.why === 'few-views' ? 'Not scored: too few views to judge' : p.why === 'no-typical' ? 'Not scored: a typical post on this platform gets no interactions' : 'No result yet', cls: 'chip c-flat' } : { text: fx(p.ratio) + ' overall result', cls: 'chip ' + (p.ratio >= 1 ? 'c-up' : 'c-down') }],
+      dRows: pls.map((pl) => { const f = p.fig[pl]!; return { pl: pl === 'YouTube' ? 'YouTube (views)' : pl, letter: PLAT_LETTER[pl], color: PLAT_COLORS[pl], impr: n0(f.impr), likes: n0(f.likes), comments: n0(f.comments), shares: n0(f.shares), saves: n0(f.saves), clicks: n0(f.clicks), rate: f.rate === null ? '–' : f.rate.toFixed(1) + '%', typical: f.typical === null ? '–' : f.typical.toFixed(1) + '%', result: f.result !== null && f.settled ? fx(f.result) : f.why ? WHY_LABEL[f.why] : '–', rcls: 'chip ' + (!f.settled || f.result === null ? 'c-flat' : f.result >= 1 ? 'c-up' : 'c-down') }; }),
       dExtras: [`All platforms: ${n0(p.impr)} impressions and views` + (p.rateAll === null ? '.' : `, ${p.rateAll.toFixed(1)}% interaction rate.`), ...notes],
       dLinks: pls.map((pl) => { const url = p.links[pl]; return { label: pl, url: url || '', hasUrl: !!url }; }),
       dNote: 'Shares include reposts on LinkedIn and X; saves are Instagram saves and X bookmarks. Interaction rate = (likes + comments + shares + saves) ÷ impressions (views on YouTube); typical = the median for this format on that platform over the last 6 months.'

@@ -13,6 +13,14 @@ export const TYPICAL_MONTHS = 6;
 /** Fewer posts than this in a format on a platform: compare with the platform's posts of any format instead. */
 export const TYPICAL_MIN_POSTS = 3;
 
+/**
+ * The fewest views (impressions) a post needs on a platform to be scored and to count towards that
+ * platform's typical rate. YouTube only: most of a channel's videos (clips, the back catalogue)
+ * get a handful of views and no likes, so without a floor the typical video has no interactions
+ * at all and no video can be scored. Other platforms' posts are scored whatever their reach.
+ */
+export const MIN_VIEWS: Partial<Record<Platform, number>> = { youtube: 25 };
+
 /** Verdict thresholds on the × result. */
 export const RESULT = { giveMoreRoom: 1.3, rethink: 0.8, minPosts: 4, minPostsForBest: 2 };
 

@@ -32,7 +32,13 @@ export interface VFig {
   typicalBasis: 'format' | 'platform' | null;
   result: number | null;
   settled: boolean;
+  /** Why there is no result, when there isn't one. */
+  why: Unscored | null;
 }
+
+export type Unscored = 'settling' | 'few-views' | 'no-typical' | 'no-figures';
+/** Short labels for a missing result, for tables and chips. */
+export const WHY_LABEL: Record<Unscored, string> = { settling: 'settling', 'few-views': 'too few views', 'no-typical': 'can’t score', 'no-figures': 'no figures' };
 
 /** A post as the pages see it: one calendar post (all its platforms), or one platform post not in the calendar. */
 export interface VPost {
@@ -64,6 +70,8 @@ export interface VPost {
   pr: Partial<Record<PlatformName, number>>;
   /** Has figures, but some are less than a week old. */
   settling: boolean;
+  /** Why there is no overall result, when there isn't one. */
+  why: Unscored | null;
   /** Impressions (views on YouTube) on all platforms. */
   impr: number;
   /** Interaction rate on all platforms, %. */

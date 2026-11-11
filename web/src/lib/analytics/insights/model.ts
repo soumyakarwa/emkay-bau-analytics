@@ -18,7 +18,7 @@ import { cycleOf } from '../cycle';
 import { POST_KEY } from '../platforms';
 import type { Platform } from '../rows';
 import { latestPosts, type PostSnapshot, type Tables } from '../tables';
-import { SETTLE_DAYS, TYPICAL_MIN_POSTS, TYPICAL_MONTHS } from './settings';
+import { MIN_VIEWS, SETTLE_DAYS, TYPICAL_MIN_POSTS, TYPICAL_MONTHS } from './settings';
 
 export const PLATFORM_IDS: Platform[] = ['linkedin', 'instagram', 'x', 'youtube'];
 export const PLATFORM_NAMES: Record<Platform, string> = { linkedin: 'LinkedIn', instagram: 'Instagram', x: 'X', youtube: 'YouTube' };
@@ -63,7 +63,18 @@ export interface Figures {
   /** Old enough on the export day for its figures to have settled. */
   settled: boolean;
   format: string;
+  /** Why there is no result, when there isn't one. */
+  why: Unscored | null;
 }
+
+/**
+ * Why a post has no result on a platform:
+ *   settling     less than SETTLE_DAYS old on the export day
+ *   few-views    fewer views than MIN_VIEWS on that platform
+ *   no-typical   the platform's typical post has no interactions, so nothing can be compared with it
+ *   no-figures   the export has no impressions or views for it
+ */
+export type Unscored = 'settling' | 'few-views' | 'no-typical' | 'no-figures';
 
 export type Status = 'published' | 'dropped' | 'not-yet';
 
@@ -159,7 +170,7 @@ function figuresOf(p: PostSnapshot, format: string): Figures {
     viewedPct: typeof viewed === 'number' ? viewed : null, profileVisits: typeof visits === 'number' ? visits : null,
     interactions, rate: impressions ? interactions / impressions : null,
     typical: null, typicalBasis: null, result: null,
-    settled: daysBetween(created, p.asOf) >= SETTLE_DAYS, format
+    settled: daysBetween(created, p.asOf) >= SETTLE_DAYS, format, why: null
   };
 }
 
@@ -170,18 +181,23 @@ function scoreFigures(all: Figures[]): void {
     const asOf = mine.map((f) => f.asOf).sort().at(-1);
     if (!asOf) continue;
     const since = `${addMonths(asOf.slice(0, 7), -TYPICAL_MONTHS)}${asOf.slice(7)}`;
-    const pool = mine.filter((f) => f.settled && f.rate !== null && f.created >= since);
-    const platformTypical = median(pool.map((f) => f.rate as number));
+    const min = MIN_VIEWS[platform] ?? 0;
+    const enough = (f: Figures) => (f.impressions ?? 0) >= min;
+    const pool = mine.filter((f) => f.settled && f.rate !== null && f.created >= since && enough(f));
+    // A typical rate of 0 (most posts with no interactions) can't be compared with: no result.
+    const nonZero = (v: number | null) => (v ? v : null);
+    const platformTypical = nonZero(median(pool.map((f) => f.rate as number)));
     const byFormat = new Map<string, number | null>();
     for (const f of mine) {
       if (!byFormat.has(f.format)) {
         const same = pool.filter((x) => x.format === f.format);
-        byFormat.set(f.format, f.format !== NO_FORMAT && same.length >= TYPICAL_MIN_POSTS ? median(same.map((x) => x.rate as number)) : null);
+        byFormat.set(f.format, f.format !== NO_FORMAT && same.length >= TYPICAL_MIN_POSTS ? nonZero(median(same.map((x) => x.rate as number))) : null);
       }
       const typ = byFormat.get(f.format) ?? null;
       f.typical = typ ?? platformTypical;
       f.typicalBasis = typ !== null ? 'format' : platformTypical !== null ? 'platform' : null;
-      f.result = f.rate !== null && f.typical ? f.rate / f.typical : null;
+      f.result = f.rate !== null && f.typical && enough(f) ? f.rate / f.typical : null;
+      f.why = f.impressions === null ? 'no-figures' : !enough(f) ? 'few-views' : f.rate === null ? 'no-figures' : !f.typical ? 'no-typical' : !f.settled ? 'settling' : null;
     }
   }
 }

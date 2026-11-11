@@ -4,7 +4,7 @@
 
 import { cycleOf } from '../cycle';
 import type { FwInput } from './inputs';
-import { MEASURE_LABEL, OUTCOMES, RESULT, DORMANT_MONTHS, type OutcomeMeasure } from './settings';
+import { MEASURE_LABEL, MIN_VIEWS, OUTCOMES, RESULT, DORMANT_MONTHS, SETTLE_DAYS, type OutcomeMeasure } from './settings';
 import {
   DAYS, PLATFORMS, PLAT_COLORS, PLAT_LETTER, TASK_COLORS, TASK_TEXT, TASK_TEXT_COLORS, fx, median, cycleSpan, tidyPeriod, monthDone, monthLabel, pct, plural,
   segs, type PlatformName, type SetState, type State, type VPost
@@ -352,6 +352,35 @@ export function frameworkView(input: FwInput, S: State, set: SetState): any {
   const hourText = (h: number) => (h === 12 ? '12 noon' : h === 0 ? '12 am' : h < 12 ? h + ' am' : (h - 12) + ' pm');
   const prOf = (pl: PlatformName) => (p: FP) => p.pr[pl] ?? null;
 
+  // What is left out of the platform results in this period, and why, so a missing platform is
+  // never a mystery.
+  const ID: Record<PlatformName, 'linkedin' | 'instagram' | 'x' | 'youtube'> = { LinkedIn: 'linkedin', Instagram: 'instagram', X: 'x', YouTube: 'youtube' };
+  const word = (pl: PlatformName, n: number) => (pl === 'YouTube' ? (n === 1 ? 'video' : 'videos') : n === 1 ? 'post' : 'posts');
+  const cNotes: { kind: 'out' | 'some'; platform: PlatformName; text: string }[] = [];
+  for (const pl of usedPlatforms) {
+    const went = pubAll.filter((p) => cdeMonths.includes(p.m) && p.platforms.includes(pl));
+    if (!went.length) continue;
+    const figs = went.map((p) => p.fig[pl]).filter((f): f is NonNullable<typeof f> => !!f);
+    const scored = figs.filter((f) => f.result !== null && f.settled).length;
+    const count = (w: string) => figs.filter((f) => f.why === w).length;
+    const min = MIN_VIEWS[ID[pl]];
+    const few = count('few-views'), noTyp = count('no-typical'), settling = count('settling');
+    if (!scored) {
+      const why = !figs.length
+        ? `none of its ${went.length} ${word(pl, went.length)} could be matched to the ${pl} export, so there are no figures for them. Check the calendar has their ${pl} links, and that the latest ${pl} export is uploaded.`
+        : noTyp
+          ? `most of the brand’s ${pl} ${word(pl, 2)} get no likes, comments or shares, so a typical ${word(pl, 1)} has no interactions to compare with` + (min ? ` (counting only ${word(pl, 2)} with ${min} views or more).` : '.')
+          : few === figs.length
+            ? `none of its ${figs.length} ${word(pl, figs.length)} in this period reached ${min} views, too few to judge.`
+            : settling
+              ? `its ${word(pl, 2)} in this period are less than ${SETTLE_DAYS} days old, so their figures are still settling.`
+              : `its ${word(pl, 2)} have no impressions or views in the export.`;
+      cNotes.push({ kind: 'out', platform: pl, text: `${pl} isn’t shown: ${why}` });
+    } else if (few) {
+      cNotes.push({ kind: 'some', platform: pl, text: `${few} of ${figs.length} ${pl} ${word(pl, figs.length)} had fewer than ${min} views and aren’t scored: too few views to judge.` });
+    }
+  }
+
   // C1: a dot per platform for each part.
   const cView: string = ['task', 'pillar', 'peg'].includes(S.cView) ? S.cView : 'task';
   const cViews = segs([['task', 'Comms tasks'], ['pillar', 'Pillars'], ['peg', 'Pegs']], cView, (id) => set({ cView: id }));
@@ -405,7 +434,7 @@ export function frameworkView(input: FwInput, S: State, set: SetState): any {
     return {
       name: pl, color: PLAT_COLORS[pl], letter: PLAT_LETTER[pl], has: list.length > 0, top: fCount.length ? fCount[0].f : null, topShare: fCount.length ? pct(fCount[0].l.length, list.length) : 0, v,
       result: v === null ? 'No posts' : fx(v), rcls: 'chip ' + (v === null ? 'c-flat' : v >= 1 ? 'c-up' : 'c-down'),
-      nText: list.length ? `${plural(list.length)} of ${selName}` : `No ${selName} posts with settled figures on ${pl} in this period.`,
+      nText: list.length ? `${plural(list.length)} of ${selName}` : (cNotes.find((n) => n.platform === pl && n.kind === 'out')?.text ?? `No ${selName} posts with settled figures on ${pl} in this period.`),
       formats: fCount.slice(0, 3).map((x) => ({ name: x.f, w: (x.l.length / list.length) * 100, text: `${x.l.length} · ${pct(x.l.length, list.length)}%`, ...drp(`${selName} · ${x.f} on ${pl}, ${periodShort}`, x.l, pl) })),
       pegs, hour: hr,
       timing: list.length ? `Usually ${topDays.join(' and ')}` + (timed && hr !== null ? `, around ${hourText(Math.round(hr))}.` : '. (Time of day is not in this platform’s export.)') : '',
@@ -651,7 +680,7 @@ export function frameworkView(input: FwInput, S: State, set: SetState): any {
     formatCols: FORMATS, platformCols: PLATFORMS, a5, a6, a7, slips: slips.join(', '), hasSlips: slips.length > 0,
     bViews, bViewName, dvTicks, dvMid: dvMid.toFixed(1), b1, b2Grid, b2Lines, b2Months, b2Band, b2Aria, b2Rows, b2HasTable: bView !== 'task',
     b2TableSub: 'Each ' + (bView === 'peg' ? 'peg' : 'pillar') + '’s median result month by month, with its number of posts.', fwMonths: fw.months,
-    cViews, c1, platKeys, c2Tasks, c2Pillars, c2, c2Stand, c3Rows, c3Fit,
+    cViews, c1, platKeys, c2Tasks, c2Pillars, c2, c2Stand, c3Rows, c3Fit, cNotes, hasCNotes: cNotes.length > 0, ytMin: MIN_VIEWS.youtube ?? 0,
     dViews, dPlats, d1, dViewName, dTimePlats, hasTime: !!tp, timeNote, d2Bands: BANDS.map((b) => b[2]), d2Grid, d2Days, d2Stand, d3, d3None: d3.length === 0,
     eViews, eUnit: eView === 'peg' ? 'peg' : 'pillar', e1Points, e1XTicks, e1YTicks, e1Aria, e1MidY: EY(1).toFixed(1), e1TopH: (EY(1) - 20).toFixed(1), e1BotH: (390 - EY(1)).toFixed(1), e2,
     drawerOpen: !!D, drawer, closeDrawer: () => set({ drawer: null }),

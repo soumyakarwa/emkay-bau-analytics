@@ -246,3 +246,24 @@ describe('cycles', () => {
     expect(p?.month).toBe('2026-10');
   });
 });
+
+describe('YouTube scoring', () => {
+  const yt = (n: number, views: number, likes: number) => snap(n, '2026-09-10', 0, likes, '2026-10-15', {
+    platform: 'youtube', postId: `yt:Video${String(n).padStart(6, '0')}`, link: `https://youtu.be/Video${String(n).padStart(6, '0')}`,
+    impressions: 5000, views, clicks: null, figures: 'lifetime'
+  });
+  const modelWith = (posts: PostSnapshot[]) => buildModel(dataset(), { ...tables(), posts: [...tables().posts, ...posts] }, 'im');
+  const figs = (m: ReturnType<typeof buildModel>) => m.posts.flatMap((p) => p.figures).filter((f) => f.platform === 'youtube');
+
+  it('scores only videos with 25 views or more, against the typical one of those', () => {
+    // Four small videos with no likes would make the typical video one with no interactions.
+    const m = modelWith([yt(1, 100, 2), yt(2, 100, 4), yt(3, 100, 6), yt(4, 5, 0), yt(5, 8, 0), yt(6, 3, 0), yt(7, 9, 0)]);
+    const byViews = figs(m).map((f) => [f.impressions, f.result, f.why]);
+    expect(byViews).toEqual(expect.arrayContaining([[100, 0.5, null], [100, 1, null], [100, 1.5, null], [5, null, 'few-views']]));
+  });
+
+  it('says why when even those mostly get no interactions', () => {
+    const m = modelWith([yt(1, 100, 0), yt(2, 100, 0), yt(3, 100, 3)]);
+    expect(figs(m).map((f) => f.why)).toEqual(['no-typical', 'no-typical', 'no-typical']);
+  });
+});

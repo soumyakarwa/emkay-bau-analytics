@@ -49,6 +49,7 @@ export function overviewView(input: OverviewInput, href: (page: string, tab?: st
     F.d3.forEach((s: any) => { const eps = s.epLabels.join(', '); if (s.verdict === 'Fading') flag(W, 'Series fading', 'k-warn', `${s.name} is trending down: ${eps}.`, 'framework', 'Framework · Series', 'D'); if (s.verdict === 'Building') flag(Gd, 'Series building', 'k-good', `${s.name} is trending up: ${eps}.`, 'framework', 'Framework · Series', 'D'); });
     const dorm = F.a4.filter((f: any) => f.kind.startsWith('Dormant'));
     if (dorm.length) flag(I, 'Dormant', 'k-info', dorm.slice(0, 2).map((f: any) => f.text).join(' ') + (dorm.length > 2 ? ` And ${dorm.length - 2} more.` : ''), 'framework', 'Framework · Split', 'A');
+    F.cNotes.filter((n: any) => n.kind === 'out').forEach((n: any) => flag(I, 'Not scored', 'k-info', n.text, 'framework', 'Framework · Platforms', 'C'));
     F.b6.slice(0, 2).forEach((i: any) => flag(Gd, 'Doing well on few posts', 'k-good', `${i.name} (${i.path}): ${i.v} from ${i.share}.`, 'framework', 'Framework · Performance', 'B'));
   }
   if (PP?.best1 && PP.best1.ratio >= 2) flag(Gd, 'Standout post', 'k-good', `“${PP.best1.title}” did ${PP.best1.ratio.toFixed(1)}× against a typical post of its format.`, 'posts', 'Posts');
